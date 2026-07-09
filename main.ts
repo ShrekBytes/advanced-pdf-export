@@ -114,8 +114,8 @@ interface PDFExportSettings extends DocStyle {
   showPageNumbers: boolean;
   pageNumberPosition: "center" | "left" | "right";
   pageNumberStart: number;
-  /** Template for rendering the page number string. Supports {{page_current}}
-   *  and {{page_total}} placeholders, e.g. "Page {{page_current}} of {{page_total}}". */
+  /** Template for rendering the page number string. Supports {{current}}
+   *  and {{total}} placeholders, e.g. "Page {{current}} of {{total}}". */
   pageNumberFormat: string;
   showHeaderOnFirstPage: boolean;
   showFooterOnFirstPage: boolean;
@@ -387,7 +387,7 @@ const DEFAULT_SETTINGS: PDFExportSettings = {
   showPageNumbers: true,
   pageNumberPosition: "right",
   pageNumberStart: 1,
-  pageNumberFormat: "{{page_current}} / {{page_total}}",
+  pageNumberFormat: "{{current}} / {{total}}",
   showHeaderOnFirstPage: true,
   showFooterOnFirstPage: true,
   headerAlignment:     "right",
@@ -1658,14 +1658,14 @@ function paginateEl(
 
 // ─── Page layout builder ──────────────────────────────────────────────────────
 
-/** Resolves a page-number format template by substituting the {{page_current}}
- *  and {{page_total}} placeholders with the given values. Falls back to the
+/** Resolves a page-number format template by substituting the {{current}}
+ *  and {{total}} placeholders with the given values. Falls back to the
  *  default "current / total" template when the format is empty. */
 function resolvePageNumberFormat(format: string, current: number, total: number): string {
-  const template = format && format.trim() ? format : "{{page_current}} / {{page_total}}";
+  const template = format && format.trim() ? format : "{{current}} / {{total}}";
   return template
-    .replace(/\{\{\s*page_current\s*\}\}/g, String(current))
-    .replace(/\{\{\s*page_total\s*\}\}/g, String(total));
+    .replace(/\{\{\s*current\s*\}\}/g, String(current))
+    .replace(/\{\{\s*total\s*\}\}/g, String(total));
 }
 
 /** Converts paginated page-node arrays into fully-resolved PageLayout objects,
@@ -3223,9 +3223,9 @@ class PDFExportSettingTab extends PluginSettingTab {
     );
     new Setting(containerEl)
       .setName("Page number format")
-      .setDesc("Use {{page_current}} and {{page_total}} as placeholders, e.g. \"Page {{page_current}} of {{page_total}}\", \"{{page_current}}/{{page_total}}\", or just \"{{page_current}}\".")
+      .setDesc("Use {{current}} and {{total}} as placeholders, e.g. \"Page {{current}} of {{total}}\", \"{{current}}/{{total}}\", or just \"{{current}}\".")
       .addText((t) =>
-        t.setPlaceholder("{{page_current}} / {{page_total}}").setValue(s.pageNumberFormat)
+        t.setPlaceholder("{{current}} / {{total}}").setValue(s.pageNumberFormat)
          .onChange((v) => { s.pageNumberFormat = v; void this.markDirty(); }),
       );
     new Setting(containerEl)
