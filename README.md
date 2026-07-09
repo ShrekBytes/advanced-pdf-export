@@ -33,7 +33,7 @@ If this plugin saves you time, consider **[supporting the project](https://shrek
 - **Full layout control** — margins, font family/size/line height, paragraph spacing, heading scale, colors
 - **Page frame** — optional border drawn around the outer edge of every page (solid, dashed, dotted, double, groove, or ridge)
 - **Background** — solid color or a background image with fit, scope (full page or content area only), and opacity controls
-- **Header & footer** — custom text, page numbers (X / Y), alignment, font size/color, optional banner image, and first-page suppression
+- **Header & footer** — custom text, customizable page numbers (`{{page_current}}` / `{{page_total}}` template placeholders), alignment, font size/color, optional banner image, and first-page suppression
 - **PDF outline (bookmarks)** — heading-based bookmark tree embedded in the exported PDF; most PDF readers display it in a side panel
 
 ## Screenshots
@@ -187,6 +187,7 @@ All settings take effect after closing the settings panel.
 | Image left/right margin | Insets the banner from the left and right page edges (px) |
 | Show page numbers | Toggle *Page X / Y* display |
 | Page number position | Left, Center, or Right |
+| Page number format | Custom template using `{{page_current}}` and `{{page_total}}` placeholders, e.g. `Page {{page_current}} of {{page_total}}`, `{{page_current}}/{{page_total}}`, or just `{{page_current}}` (default: `{{page_current}} / {{page_total}}`) |
 | Page number start | Number assigned to the first visible page number (default 1) |
 
 ### Behaviour

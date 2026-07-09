@@ -114,6 +114,9 @@ interface PDFExportSettings extends DocStyle {
   showPageNumbers: boolean;
   pageNumberPosition: "center" | "left" | "right";
   pageNumberStart: number;
+  /** Template for rendering the page number string. Supports {{page_current}}
+   *  and {{page_total}} placeholders, e.g. "Page {{page_current}} of {{page_total}}". */
+  pageNumberFormat: string;
   showHeaderOnFirstPage: boolean;
   showFooterOnFirstPage: boolean;
   headerAlignment: "left" | "center" | "right";
@@ -384,6 +387,7 @@ const DEFAULT_SETTINGS: PDFExportSettings = {
   showPageNumbers: true,
   pageNumberPosition: "right",
   pageNumberStart: 1,
+  pageNumberFormat: "{{page_current}} / {{page_total}}",
   showHeaderOnFirstPage: true,
   showFooterOnFirstPage: true,
   headerAlignment:     "right",
@@ -1654,6 +1658,16 @@ function paginateEl(
 
 // ─── Page layout builder ──────────────────────────────────────────────────────
 
+/** Resolves a page-number format template by substituting the {{page_current}}
+ *  and {{page_total}} placeholders with the given values. Falls back to the
+ *  default "current / total" template when the format is empty. */
+function resolvePageNumberFormat(format: string, current: number, total: number): string {
+  const template = format && format.trim() ? format : "{{page_current}} / {{page_total}}";
+  return template
+    .replace(/\{\{\s*page_current\s*\}\}/g, String(current))
+    .replace(/\{\{\s*page_total\s*\}\}/g, String(total));
+}
+
 /** Converts paginated page-node arrays into fully-resolved PageLayout objects,
  *  computing header/footer text and page number strings for each page. */
 function buildPageLayouts(allPages: HTMLElement[][], s: PDFExportSettings): PageLayout[] {
@@ -1666,7 +1680,7 @@ function buildPageLayouts(allPages: HTMLElement[][], s: PDFExportSettings): Page
     // Page-number offset: when footer is hidden on page 1 the numbering shifts by 1.
     const displayNum   = s.showFooterOnFirstPage ? s.pageNumberStart + i       : s.pageNumberStart + (i - 1);
     const displayTotal = s.showFooterOnFirstPage ? s.pageNumberStart + totalPages - 1 : s.pageNumberStart + totalPages - 2;
-    const numStr = `${displayNum} / ${displayTotal}`;
+    const numStr = resolvePageNumberFormat(s.pageNumberFormat, displayNum, displayTotal);
 
     let footerLeft = "", footerRight = "", footerCenter = "";
     let headerLeft = "", headerCenter = "", headerRight = "";
@@ -1987,6 +2001,11 @@ export default class MarkdownPDFPlugin extends Plugin {
 
     // Page-number start must be at least 1.
     s.pageNumberStart  = Math.max(1,  s.pageNumberStart);
+
+    // Page-number format: fall back to default when cleared.
+    if (!s.pageNumberFormat || !s.pageNumberFormat.trim()) {
+      s.pageNumberFormat = DEFAULT_SETTINGS.pageNumberFormat;
+    }
   }
 
   async saveSettings() {
@@ -3202,6 +3221,13 @@ class PDFExportSettingTab extends PluginSettingTab {
        .setValue(s.pageNumberPosition)
        .onChange((v) => { s.pageNumberPosition = v as "left"|"center"|"right"; void this.markDirty(); }),
     );
+    new Setting(containerEl)
+      .setName("Page number format")
+      .setDesc("Use {{page_current}} and {{page_total}} as placeholders, e.g. \"Page {{page_current}} of {{page_total}}\", \"{{page_current}}/{{page_total}}\", or just \"{{page_current}}\".")
+      .addText((t) =>
+        t.setPlaceholder("{{page_current}} / {{page_total}}").setValue(s.pageNumberFormat)
+         .onChange((v) => { s.pageNumberFormat = v; void this.markDirty(); }),
+      );
     new Setting(containerEl)
       .setName("Page number start")
       .setDesc("Number assigned to the first visible page number.")
