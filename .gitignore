@@ -1,4 +1,12 @@
+# Dependencies
 node_modules/
+
+# Obsidian vault
 .obsidian/
+
+# Logs
 *.log
+
+# OS files
 .DS_Store
+Thumbs.db
