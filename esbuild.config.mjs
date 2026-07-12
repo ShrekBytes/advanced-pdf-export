@@ -19,7 +19,7 @@ const external = [
 ];
 
 const ctx = await esbuild.context({
-  entryPoints: ["main.ts"],
+  entryPoints: ["src/main.ts"],
   bundle: true,
   outfile: "main.js",
   external,
