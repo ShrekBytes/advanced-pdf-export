@@ -433,11 +433,11 @@ export class PDFExportModal extends Modal {
 
     if (immediate) {
       // Double rAF: ensures the spinner paints before synchronous pagination blocks the thread.
-      window.requestAnimationFrame(() => window.requestAnimationFrame(() => void safeDo()));
+      activeWindow.requestAnimationFrame(() => activeWindow.requestAnimationFrame(() => void safeDo()));
     } else {
       this.renderDebounceTimer = window.setTimeout(() => {
         this.renderDebounceTimer = null;
-        window.requestAnimationFrame(() => window.requestAnimationFrame(() => void safeDo()));
+        activeWindow.requestAnimationFrame(() => activeWindow.requestAnimationFrame(() => void safeDo()));
       }, 150);
     }
   }
@@ -601,7 +601,7 @@ export class PDFExportModal extends Modal {
       .mpdf-hf-right { margin-left: auto; }
       ${docCSS}
     `;
-    const pageSheet = new CSSStyleSheet();
+    const pageSheet = new (activeWindow as unknown as typeof window).CSSStyleSheet();
     pageSheet.replaceSync(shadowCSS);
 
     for (const layout of layouts) {

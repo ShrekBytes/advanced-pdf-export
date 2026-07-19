@@ -375,7 +375,7 @@ export function paginateEl(
 
   const sandboxShadow = sandboxHost.attachShadow({ mode: "open" });
 
-  const sandboxSheet = new CSSStyleSheet();
+  const sandboxSheet = new (activeWindow as unknown as typeof window).CSSStyleSheet();
   sandboxSheet.replaceSync(docCSS);
   sandboxShadow.adoptedStyleSheets = [sandboxSheet];
 
