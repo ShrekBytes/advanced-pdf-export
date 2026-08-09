@@ -250,11 +250,11 @@ export class PDFExportModal extends Modal {
 
   private buildUI(container: HTMLElement) {
     const s = this.plugin.settings;
-    this.buildTopbar(container.createEl("div", { cls: "mpdf-topbar" }), s);
+    this.buildTopbar(container.createDiv({ cls: "mpdf-topbar" }), s);
 
-    const main = container.createEl("div", { cls: "mpdf-main" });
+    const main = container.createDiv({ cls: "mpdf-main" });
 
-    const editorPanel = main.createEl("div", { cls: "mpdf-editor-panel" });
+    const editorPanel = main.createDiv({ cls: "mpdf-editor-panel" });
 
     this.editorEl = editorPanel.createEl("textarea", { cls: "mpdf-editor" });
     this.editorEl.placeholder =
@@ -267,12 +267,12 @@ export class PDFExportModal extends Modal {
       "Markdown tables:\n| Col A | Col B |\n|-------|-------|\n| Cell  | Cell  |";
 
     // Preview container keeps the loading overlay fixed (non-scrolling) over the panel.
-    const previewContainer = main.createEl("div", { cls: "mpdf-preview-container" });
-    this.previewEl = previewContainer.createEl("div", { cls: "mpdf-preview" });
+    const previewContainer = main.createDiv({ cls: "mpdf-preview-container" });
+    this.previewEl = previewContainer.createDiv({ cls: "mpdf-preview" });
 
-    this.loadingOverlayEl = previewContainer.createEl("div", { cls: "mpdf-loading-overlay" });
-    this.loadingOverlayEl.createEl("div", { cls: "mpdf-spinner" });
-    this.loadingOverlayEl.createEl("span", { cls: "mpdf-loading-text", text: "Rendering…" });
+    this.loadingOverlayEl = previewContainer.createDiv({ cls: "mpdf-loading-overlay" });
+    this.loadingOverlayEl.createDiv({ cls: "mpdf-spinner" });
+    this.loadingOverlayEl.createSpan({ cls: "mpdf-loading-text", text: "Rendering…" });
 
     this.editorEl.addEventListener("keydown", (e) => {
       if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
@@ -283,8 +283,8 @@ export class PDFExportModal extends Modal {
   }
 
   private buildTopbar(topbar: HTMLElement, s: PDFExportSettings) {
-    const left  = topbar.createEl("div", { cls: "mpdf-topbar-left" });
-    const right = topbar.createEl("div", { cls: "mpdf-topbar-right" });
+    const left  = topbar.createDiv({ cls: "mpdf-topbar-left" });
+    const right = topbar.createDiv({ cls: "mpdf-topbar-right" });
 
     const makeSelect = (
       label: string,
@@ -292,8 +292,8 @@ export class PDFExportModal extends Modal {
       val: string,
       cb: (v: string) => Promise<void>,
     ) => {
-      const wrap = left.createEl("div", { cls: "mpdf-ctrl" });
-      wrap.createEl("span", { cls: "mpdf-ctrl-label", text: label });
+      const wrap = left.createDiv({ cls: "mpdf-ctrl" });
+      wrap.createSpan({ cls: "mpdf-ctrl-label", text: label });
       const el = wrap.createEl("select", { cls: "mpdf-select" });
       for (const [v, t] of Object.entries(opts)) {
         const o = el.createEl("option", { text: t, value: v });
@@ -314,8 +314,8 @@ export class PDFExportModal extends Modal {
     sizeOpts["Custom"] = "Custom";
 
     // Build the size control manually so we can show/hide the custom-dims inputs.
-    const sizeCtrl = left.createEl("div", { cls: "mpdf-ctrl" });
-    sizeCtrl.createEl("span", { cls: "mpdf-ctrl-label", text: "Size" });
+    const sizeCtrl = left.createDiv({ cls: "mpdf-ctrl" });
+    sizeCtrl.createSpan({ cls: "mpdf-ctrl-label", text: "Size" });
     const sizeSelect = sizeCtrl.createEl("select", { cls: "mpdf-select" });
     for (const [v, t] of Object.entries(sizeOpts)) {
       const o = sizeSelect.createEl("option", { text: t, value: v });
@@ -323,18 +323,18 @@ export class PDFExportModal extends Modal {
     }
 
     // Custom W×H inputs — visible only when "Custom" is active.
-    const customCtrl = left.createEl("div", { cls: "mpdf-ctrl" });
+    const customCtrl = left.createDiv({ cls: "mpdf-ctrl" });
     customCtrl.toggleClass("mpdf-is-hidden", s.pageSize !== "Custom");
 
     const makeNumInput = (label: string, val: number): HTMLInputElement => {
-      customCtrl.createEl("span", { cls: "mpdf-ctrl-label", text: label });
+      customCtrl.createSpan({ cls: "mpdf-ctrl-label", text: label });
       const inp = customCtrl.createEl("input", { cls: "mpdf-custom-size-input" });
       inp.type = "number"; inp.min = "10"; inp.step = "1"; inp.value = String(val);
       return inp;
     };
     const wInp = makeNumInput("W", s.customPageWidth);
     const hInp = makeNumInput("H", s.customPageHeight);
-    customCtrl.createEl("span", { cls: "mpdf-ctrl-label", text: "mm" });
+    customCtrl.createSpan({ cls: "mpdf-ctrl-label", text: "mm" });
 
     sizeSelect.addEventListener("change", () => {
       this.plugin.settings.pageSize = sizeSelect.value;
@@ -357,9 +357,9 @@ export class PDFExportModal extends Modal {
       },
     );
 
-    const zoomWrap = left.createEl("div", { cls: "mpdf-ctrl" });
-    zoomWrap.createEl("span", { cls: "mpdf-ctrl-label", text: "Zoom" });
-    const zoomLabel = zoomWrap.createEl("span", {
+    const zoomWrap = left.createDiv({ cls: "mpdf-ctrl" });
+    zoomWrap.createSpan({ cls: "mpdf-ctrl-label", text: "Zoom" });
+    const zoomLabel = zoomWrap.createSpan({
       cls: "mpdf-ctrl-label",
       text: Math.round(s.previewScale * 100) + "%",
     });
@@ -381,9 +381,9 @@ export class PDFExportModal extends Modal {
     breakBtn.title = "Insert page break (///)";
     breakBtn.addEventListener("click", () => this.insertAtCursor("\n///\n"));
 
-    this.noteTitleEl = left.createEl("div", { cls: "mpdf-topbar-title", text: "—" });
+    this.noteTitleEl = left.createDiv({ cls: "mpdf-topbar-title", text: "—" });
 
-    this.pageCountEl = right.createEl("span", { cls: "mpdf-page-count", text: "— pages" });
+    this.pageCountEl = right.createSpan({ cls: "mpdf-page-count", text: "— pages" });
 
     const settingsBtn = right.createEl("button", { cls: "mpdf-btn mpdf-btn-icon" });
     settingsBtn.setAttr("aria-label", "Open Advanced PDF Export settings");
@@ -608,12 +608,12 @@ export class PDFExportModal extends Modal {
       const scaledW = Math.round(pw * scale);
       const scaledH = Math.round(ph * scale);
 
-      const wrap = this.previewEl.createEl("div", { cls: "mpdf-page-wrap" });
+      const wrap = this.previewEl.createDiv({ cls: "mpdf-page-wrap" });
       wrap.setCssStyles({ width: `${scaledW}px`, height: `${scaledH}px` });
-      wrap.createEl("div", { cls: "mpdf-page-label", text: `Page ${layout.pageNum} of ${layout.totalPages}` });
+      wrap.createDiv({ cls: "mpdf-page-label", text: `Page ${layout.pageNum} of ${layout.totalPages}` });
       pageWraps.push(wrap);
 
-      const scaleWrap = wrap.createEl("div", { cls: "mpdf-page-scale" });
+      const scaleWrap = wrap.createDiv({ cls: "mpdf-page-scale" });
       scaleWrap.setCssStyles({ width: `${scaledW}px`, height: `${scaledH}px` });
 
       // Shadow root isolates page content from Obsidian's theme CSS.
