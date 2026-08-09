@@ -225,7 +225,7 @@ function buildTableWithRows(tableEl: HTMLTableElement, rows: HTMLTableRowElement
   const colgroup = tableEl.querySelector("colgroup");
   if (colgroup) clone.appendChild(colgroup.cloneNode(true));
   if (tableEl.tHead) clone.appendChild(tableEl.tHead.cloneNode(true));
-  const tbody = activeDocument.createElement("tbody");
+  const tbody = createEl("tbody");
   for (const row of rows) tbody.appendChild(row.cloneNode(true));
   clone.appendChild(tbody);
   return clone;
@@ -366,7 +366,7 @@ export function paginateEl(
   docCSS: string,
 ): HTMLElement[][] {
   // Hidden shadow-root sandbox: scoped CSS prevents host-document pollution.
-  const sandboxHost = activeDocument.createElement("div");
+  const sandboxHost = createDiv();
   sandboxHost.setCssStyles({
     position: "fixed", top: "0", left: "-99999px",
     width: `${contentWidthPx}px`,
@@ -379,7 +379,7 @@ export function paginateEl(
   sandboxSheet.replaceSync(docCSS);
   sandboxShadow.adoptedStyleSheets = [sandboxSheet];
 
-  const inner = activeDocument.createElement("div");
+  const inner = createDiv();
   inner.className = "mpdf-doc";
   for (const child of Array.from(sourceEl.children)) {
     inner.appendChild(child.cloneNode(true));
@@ -387,7 +387,7 @@ export function paginateEl(
   sandboxShadow.appendChild(inner);
 
   // Measurement div: same width, always empty before each measurement.
-  const measure = activeDocument.createElement("div");
+  const measure = createDiv();
   measure.className = "mpdf-doc";
   measure.setCssStyles({ position: "absolute", top: "0", left: "0", width: `${contentWidthPx}px`, visibility: "hidden" });
   sandboxShadow.appendChild(measure);

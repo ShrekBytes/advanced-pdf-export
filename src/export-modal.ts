@@ -113,7 +113,7 @@ function frameBorderCSS(s: PDFExportSettings): string {
 function buildFrameOverlayEl(s: PDFExportSettings): HTMLElement | null {
   if (!s.frameEnabled) return null;
   const inset = `${s.frameMargin}px`;
-  const frame = activeDocument.createElement("div");
+  const frame = createDiv();
   frame.setCssStyles({
     position: "absolute", top: inset, left: inset, right: inset, bottom: inset,
     pointerEvents: "none", boxSizing: "border-box",
@@ -133,15 +133,15 @@ function buildFrameOverlayHTML(s: PDFExportSettings): string {
 function appendHFNodes(container: HTMLElement, center: string, left: string, right: string): void {
   if (!center && !left && !right) return;
   if (center) {
-    const span = activeDocument.createElement("span");
+    const span = createSpan();
     span.className = "mpdf-hf-center";
     span.textContent = center;
     container.appendChild(span);
   } else {
-    const leftSpan = activeDocument.createElement("span");
+    const leftSpan = createSpan();
     leftSpan.textContent = left;
     container.appendChild(leftSpan);
-    const rightSpan = activeDocument.createElement("span");
+    const rightSpan = createSpan();
     rightSpan.className = "mpdf-hf-right";
     rightSpan.textContent = right;
     container.appendChild(rightSpan);
@@ -433,11 +433,11 @@ export class PDFExportModal extends Modal {
 
     if (immediate) {
       // Double rAF: ensures the spinner paints before synchronous pagination blocks the thread.
-      activeWindow.requestAnimationFrame(() => activeWindow.requestAnimationFrame(() => void safeDo()));
+      window.requestAnimationFrame(() => window.requestAnimationFrame(() => void safeDo()));
     } else {
       this.renderDebounceTimer = window.setTimeout(() => {
         this.renderDebounceTimer = null;
-        activeWindow.requestAnimationFrame(() => activeWindow.requestAnimationFrame(() => void safeDo()));
+        window.requestAnimationFrame(() => window.requestAnimationFrame(() => void safeDo()));
       }, 150);
     }
   }
@@ -617,7 +617,7 @@ export class PDFExportModal extends Modal {
       scaleWrap.setCssStyles({ width: `${scaledW}px`, height: `${scaledH}px` });
 
       // Shadow root isolates page content from Obsidian's theme CSS.
-      const shadowHost = activeDocument.createElement("div");
+      const shadowHost = createDiv();
       shadowHost.addClass("mpdf-shadow-host");
       shadowHost.setCssStyles({ width: `${pw}px`, height: `${ph}px`, transform: `scale(${scale})` });
       scaleWrap.appendChild(shadowHost);
@@ -630,7 +630,7 @@ export class PDFExportModal extends Modal {
         const bgUrl = resolveImageUrl(this.app, s.backgroundImagePath);
         if (bgUrl) {
           const isContentOnly = s.backgroundImageScope === "content-only";
-          const bgEl = activeDocument.createElement("div");
+          const bgEl = createDiv();
           const bgCss = bgImageCssProps(s.backgroundImageSize);
           bgEl.setCssStyles({
             position: "absolute",
@@ -655,7 +655,7 @@ export class PDFExportModal extends Modal {
       if (pageShowsHeader && s.showHeader && s.headerImagePath) {
         const imgUrl = resolveImageUrl(this.app, s.headerImagePath);
         if (imgUrl) {
-          const bannerEl = activeDocument.createElement("div");
+          const bannerEl = createDiv();
           bannerEl.setCssStyles({
             position: "absolute",
             top: `${mTop * 0.4}px`,
@@ -675,7 +675,7 @@ export class PDFExportModal extends Modal {
       // ── Header text ──────────────────────────────────────────────────────────
       const hasHeader = layout.hasHeader;
       if (hasHeader) {
-        const hdr = activeDocument.createElement("div");
+        const hdr = createDiv();
         hdr.setCssStyles({
           position: "absolute", top: `${mTop * 0.4}px`, left: `${mLeft}px`, right: `${mRight}px`,
           height: `${headerH}px`,
@@ -688,7 +688,7 @@ export class PDFExportModal extends Modal {
       }
 
       // ── Content ──────────────────────────────────────────────────────────────
-      const contentDiv = activeDocument.createElement("div");
+      const contentDiv = createDiv();
       contentDiv.className = "mpdf-doc";
       if (isRTL) contentDiv.setAttribute("dir", "rtl");
       // No explicit height or overflow:hidden — :host clips at the page edge.
@@ -719,7 +719,7 @@ export class PDFExportModal extends Modal {
       if (pageShowsFooter && s.showFooter && s.footerImagePath) {
         const imgUrl = resolveImageUrl(this.app, s.footerImagePath);
         if (imgUrl) {
-          const bannerEl = activeDocument.createElement("div");
+          const bannerEl = createDiv();
           bannerEl.setCssStyles({
             position: "absolute",
             bottom: "0",
@@ -739,7 +739,7 @@ export class PDFExportModal extends Modal {
       // ── Footer text ───────────────────────────────────────────────────────────
       const hasFooter = layout.hasFooter;
       if (hasFooter) {
-        const footer = activeDocument.createElement("div");
+        const footer = createDiv();
         footer.setCssStyles({
           position: "absolute", bottom: "0", left: "0", right: "0",
           height: `${footerH}px`, display: "flex", alignItems: "center",

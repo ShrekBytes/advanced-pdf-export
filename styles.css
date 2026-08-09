@@ -295,9 +295,11 @@
   border-color: var(--interactive-accent);
 }
 
-/* Utility: toggle visibility without affecting layout flow */
-.mpdf-is-hidden {
-  display: none !important;
+/* Utility: toggle visibility without affecting layout flow.
+   Doubled class selector bumps specificity above single-class rules
+   (e.g. .mpdf-ctrl, Obsidian's own .setting-item) without needing !important. */
+.mpdf-is-hidden.mpdf-is-hidden {
+  display: none;
 }
 
 /* Static positioning for the per-page shadow-DOM host; width/height/transform set inline */

@@ -188,7 +188,7 @@ export async function renderMarkdownToEl(
   sourcePath: string,
   component: Component,
 ): Promise<HTMLElement> {
-  const temp = activeDocument.createElement("div");
+  const temp = createDiv();
   // Attached offscreen so Obsidian's async post-processors (mermaid, math) run in a real DOM context.
   temp.setCssStyles({ position: "fixed", top: "0", left: "-99999px", visibility: "hidden", pointerEvents: "none" });
   activeDocument.body.appendChild(temp);
