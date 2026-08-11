@@ -36,6 +36,7 @@ If this plugin saves you time, consider **[supporting the project](https://shrek
 - **Background** — solid color or a background image with fit, scope (full page or content area only), and opacity controls
 - **Header & footer** — custom text, customizable page numbers (`{{current}}` / `{{total}}` template placeholders), alignment, font size/color, optional banner image, and first-page suppression
 - **PDF outline (bookmarks)** — heading-based bookmark tree embedded in the exported PDF; most PDF readers display it in a side panel
+- **Print** — send the rendered document straight to any installed printer, or your OS's own "Save as PDF" dialog, via **Export PDF ▾ → Print…**
 
 ## Screenshots
 
@@ -87,7 +88,7 @@ Search for **Advanced PDF Export** in **Settings → Community Plugins → Brows
 
 **Change style or page settings** — use the **Style**, **Size**, and **Orient** dropdowns in the topbar. Changes re-render automatically.
 
-**Export** — click **⬇ Export PDF** to open a native save dialog and write the PDF to disk.
+**Export** — click **⬇ Export PDF** to open a native save dialog and write the PDF to disk. Click the **▾** next to it for **Print…**, which sends the document to any installed printer or your OS's own "Save as PDF" dialog instead.
 
 **Open settings** — click the ⚙ icon in the topbar, or go to **Settings → Advanced PDF Export**.
 
@@ -107,14 +108,14 @@ All settings take effect after closing the settings panel.
 | Setting | Description |
 |---|---|
 | Page size | A4, A3, A5, Letter, Legal, or Custom |
-| Custom page size | Width × Height in mm (visible only when Custom is selected) |
+| Custom width / Custom height | Width and height in mm, each its own field (visible only when Custom is selected) |
 | Orientation | Portrait or Landscape |
 
 ### Margin & Frame
 
 | Setting | Description |
 |---|---|
-| Margins | Top · Bottom · Left · Right in mm |
+| Margin top / bottom / left / right | Each its own field, in mm |
 | Enable frame | Draws a border around the outer edge of every page |
 | Frame color | Color of the page frame |
 | Frame thickness | Border width in px |

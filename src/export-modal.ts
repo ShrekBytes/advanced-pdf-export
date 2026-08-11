@@ -915,6 +915,40 @@ ${pageHTMLParts.join("\n")}
     return { fullHTML, layouts };
   }
 
+  /** Creates a hidden BrowserWindow, loads fullHTML into it via a blob: URL,
+   *  and resolves once the page has loaded and its @font-face fonts (including
+   *  inlined MathJax fonts) are ready to capture. Shared by exportPDF() and
+   *  printPDF() — they diverge after this point in what they do with the
+   *  window. Callers own revoking the returned url and closing the window. */
+  private async loadExportWindow(
+    remote: ElectronRemote, fullHTML: string,
+  ): Promise<{ win: ElectronBrowserWindow; url: string }> {
+    const blob = new Blob([fullHTML], { type: "text/html" });
+    const url  = URL.createObjectURL(blob);
+    const win  = new remote.BrowserWindow({ show: false, webPreferences: { nodeIntegration: false } });
+
+    win.loadURL(url);
+
+    await new Promise<void>((resolve, reject) => {
+      // Both events can fire for the same load — a flag ensures only the first one acts.
+      let handled = false;
+      win.webContents.once("did-fail-load", (_event: unknown, _code: number, desc: string) => {
+        if (handled) return;
+        handled = true;
+        reject(new Error(desc));
+      });
+      win.webContents.once("did-finish-load", () => {
+        if (handled) return;
+        handled = true;
+        resolve();
+      });
+    });
+
+    await win.webContents.executeJavaScript("document.fonts.ready.then(() => true)").catch(() => true);
+
+    return { win, url };
+  }
+
   private async exportPDF() {
     const s = this.plugin.settings;
     this.setExportBusy("⬇ Exporting…");
@@ -942,64 +976,47 @@ ${pageHTMLParts.join("\n")}
 
       new Notice("Advanced PDF Export — generating PDF…");
 
-      const blob = new Blob([fullHTML], { type: "text/html" });
-      const url  = URL.createObjectURL(blob);
-      const win  = new remote.BrowserWindow({ show: false, webPreferences: { nodeIntegration: false } });
-
-      win.loadURL(url);
-
-      // Both events can fire for the same load — a flag ensures only the first one acts.
-      let exportHandled = false;
+      let win: ElectronBrowserWindow, url: string;
+      try {
+        ({ win, url } = await this.loadExportWindow(remote, fullHTML));
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        new Notice("Advanced PDF Export — failed to load page: " + msg);
+        this.setExportBusy(null);
+        return;
+      }
       const cleanupWin = () => { URL.revokeObjectURL(url); win.close(); this.setExportBusy(null); };
 
-      win.webContents.once("did-fail-load", (_event: unknown, _code: number, desc: string) => {
-        if (exportHandled) return;
-        exportHandled = true;
-        new Notice("Advanced PDF Export — failed to load page: " + desc);
+      try {
+        // Custom sizes embed @page dimensions in the HTML; preferCSSPageSize lets
+        // Electron honour that rule. Named sizes pass the size string directly.
+        const isCustom = s.pageSize === "Custom";
+        let data = await win.webContents.printToPDF({
+          pageSize:          isCustom ? "A4" : s.pageSize,
+          landscape:         !isCustom && s.orientation === "landscape",
+          preferCSSPageSize: isCustom,
+          printBackground:   true,
+          margins:           { marginType: "none" },
+        });
+
+        // printToPDF produces a flat PDF with no outline; inject one via pdf-lib.
+        if (s.includeOutline) {
+          try {
+            data = await injectPDFOutline(data, extractOutlineEntries(layouts));
+          } catch (outlineErr) {
+            console.warn("[advanced-pdf-export] outline injection failed:", outlineErr);
+          }
+        }
+        electron.require("fs").writeFile(res.filePath!, data, (err: Error | null) => {
+          if (err) new Notice("Advanced PDF Export — failed to save: " + err.message);
+          else     new Notice("✓ PDF saved — " + res.filePath);
+          cleanupWin();
+        });
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        new Notice("Advanced PDF Export — failed to render: " + msg);
         cleanupWin();
-      });
-
-      win.webContents.once("did-finish-load", () => {
-        if (exportHandled) return;
-        exportHandled = true;
-
-        // Ensure all @font-face fonts (including inlined MathJax fonts) are loaded
-        // before capturing the PDF so math characters are not invisible.
-        win.webContents
-          .executeJavaScript("document.fonts.ready.then(() => true)")
-          .catch(() => true)
-          .then(() => {
-            // Custom sizes embed @page dimensions in the HTML; preferCSSPageSize lets
-            // Electron honour that rule. Named sizes pass the size string directly.
-            const isCustom = s.pageSize === "Custom";
-            return win.webContents.printToPDF({
-              pageSize:          isCustom ? "A4" : s.pageSize,
-              landscape:         !isCustom && s.orientation === "landscape",
-              preferCSSPageSize: isCustom,
-              printBackground:   true,
-              margins:           { marginType: "none" },
-            });
-          })
-          .then(async (data: Uint8Array) => {
-            // printToPDF produces a flat PDF with no outline; inject one via pdf-lib.
-            if (s.includeOutline) {
-              try {
-                data = await injectPDFOutline(data, extractOutlineEntries(layouts));
-              } catch (outlineErr) {
-                console.warn("[advanced-pdf-export] outline injection failed:", outlineErr);
-              }
-            }
-            electron.require("fs").writeFile(res.filePath!, data, (err: Error | null) => {
-              if (err) new Notice("Advanced PDF Export — failed to save: " + err.message);
-              else     new Notice("✓ PDF saved — " + res.filePath);
-              cleanupWin();
-            });
-          })
-          .catch((err: Error) => {
-            new Notice("Advanced PDF Export — failed to render: " + err.message);
-            cleanupWin();
-          });
-      });
+      }
     } catch {
       new Notice("Advanced PDF Export requires the Obsidian desktop app.");
       this.setExportBusy(null);
@@ -1008,10 +1025,9 @@ ${pageHTMLParts.join("\n")}
 
   /** Opens Electron's native print dialog (any installed printer, or the OS's
    *  own "Save as PDF" option) on the same document exportPDF() would save
-   *  directly — same buildExportDocument() path, just handed to print()
-   *  instead of printToPDF()+writeFile(). There's no outline injection here:
-   *  once the dialog is up, the result goes straight from Electron to
-   *  whatever printer or destination the user picked, not back to us. */
+   *  directly. There's no outline injection here: once the dialog is up, the
+   *  result goes straight from Electron to whatever printer or destination
+   *  the user picked, not back to us. */
   private async printPDF() {
     this.setExportBusy("⬇ Preparing to print…");
 
@@ -1024,46 +1040,24 @@ ${pageHTMLParts.join("\n")}
       const remote = electron.require("@electron/remote") as ElectronRemote | null;
       if (!remote?.BrowserWindow) throw new Error("no remote");
 
-      const blob = new Blob([fullHTML], { type: "text/html" });
-      const url  = URL.createObjectURL(blob);
-      const win  = new remote.BrowserWindow({ show: false, webPreferences: { nodeIntegration: false } });
-
-      win.loadURL(url);
-
-      // Both events can fire for the same load — a flag ensures only the first one acts.
-      let printHandled = false;
+      let win: ElectronBrowserWindow, url: string;
+      try {
+        ({ win, url } = await this.loadExportWindow(remote, fullHTML));
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        new Notice("Advanced PDF Export — failed to load page: " + msg);
+        this.setExportBusy(null);
+        return;
+      }
       const cleanupWin = () => { URL.revokeObjectURL(url); win.close(); this.setExportBusy(null); };
 
-      win.webContents.once("did-fail-load", (_event: unknown, _code: number, desc: string) => {
-        if (printHandled) return;
-        printHandled = true;
-        new Notice("Advanced PDF Export — failed to load page: " + desc);
+      win.webContents.print({}, (success: boolean, failureReason: string) => {
+        // Electron reports a user-cancelled print job as a failure too — only
+        // surface a Notice for genuine errors.
+        if (!success && failureReason !== "cancelled") {
+          new Notice("Advanced PDF Export — print failed: " + failureReason);
+        }
         cleanupWin();
-      });
-
-      win.webContents.once("did-finish-load", () => {
-        if (printHandled) return;
-        printHandled = true;
-
-        // Ensure all @font-face fonts (including inlined MathJax fonts) are loaded
-        // before the print dialog captures the page.
-        win.webContents
-          .executeJavaScript("document.fonts.ready.then(() => true)")
-          .catch(() => true)
-          .then(() => {
-            win.webContents.print({}, (success: boolean, failureReason: string) => {
-              // Electron reports a user-cancelled print job as a failure too —
-              // only surface a Notice for genuine errors.
-              if (!success && failureReason !== "cancelled") {
-                new Notice("Advanced PDF Export — print failed: " + failureReason);
-              }
-              cleanupWin();
-            });
-          })
-          .catch((err: Error) => {
-            new Notice("Advanced PDF Export — failed to render: " + err.message);
-            cleanupWin();
-          });
       });
     } catch {
       new Notice("Advanced PDF Export requires the Obsidian desktop app.");
