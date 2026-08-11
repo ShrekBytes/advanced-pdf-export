@@ -323,7 +323,7 @@ export const DEFAULT_SETTINGS: PDFExportSettings = {
   hideFrontmatter: false,
   customFontName: "",
   customCodeFontName: "",
-  codeFontLigatures: true,
+  codeFontLigatures: false,
   autoBreakH1: false,
   autoBreakH2: false,
   includeFilenameAsTitle: false,
