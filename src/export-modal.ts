@@ -10,7 +10,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import {
-  App, Component, MarkdownView, Modal, Notice, TFile, setIcon,
+  App, Component, MarkdownView, Menu, Modal, Notice, TFile, setIcon,
 } from "obsidian";
 import type MarkdownPDFPlugin from "./main";
 import { PAGE_SIZES, PRESETS, PDFExportSettings } from "./settings";
@@ -44,6 +44,10 @@ interface ElectronBrowserWindow {
       preferCSSPageSize?: boolean;
       margins: { marginType: string };
     }): Promise<Uint8Array>;
+    print(
+      options: Record<string, unknown>,
+      callback?: (success: boolean, failureReason: string) => void,
+    ): void;
   };
 }
 
@@ -188,6 +192,7 @@ export class PDFExportModal extends Modal {
   private noteTitleEl!: HTMLElement;
   private renderBtn!: HTMLButtonElement;
   private exportBtn!: HTMLButtonElement;
+  private exportMenuBtn!: HTMLButtonElement;
   private loadingOverlayEl!: HTMLElement;
 
   // Owned Component for MarkdownRenderer — loaded on open, unloaded on close.
@@ -398,8 +403,22 @@ export class PDFExportModal extends Modal {
     this.renderBtn.title = "Render preview (Ctrl+Enter)";
     this.renderBtn.addEventListener("click", () => this.render(true));
 
-    this.exportBtn = right.createEl("button", { cls: "mpdf-btn mpdf-btn-primary", text: "⬇ Export PDF" });
+    const splitBtn = right.createDiv({ cls: "mpdf-split-btn" });
+    this.exportBtn = splitBtn.createEl("button", { cls: "mpdf-btn mpdf-btn-primary mpdf-split-btn-main", text: "⬇ Export PDF" });
     this.exportBtn.addEventListener("click", () => void this.exportPDF());
+
+    this.exportMenuBtn = splitBtn.createEl("button", {
+      cls: "mpdf-btn mpdf-btn-primary mpdf-split-btn-arrow",
+      attr: { "aria-label": "More export options" },
+    });
+    setIcon(this.exportMenuBtn, "chevron-down");
+    this.exportMenuBtn.addEventListener("click", () => {
+      const menu = new Menu();
+      menu.addItem((item) => item.setTitle("Export PDF").setIcon("download").onClick(() => void this.exportPDF()));
+      menu.addItem((item) => item.setTitle("Print…").setIcon("printer").onClick(() => void this.printPDF()));
+      const rect = this.exportMenuBtn.getBoundingClientRect();
+      menu.showAtPosition({ x: rect.right, y: rect.bottom + 4, left: true });
+    });
   }
 
   private insertAtCursor(text: string) {
@@ -759,19 +778,27 @@ export class PDFExportModal extends Modal {
 
   // ── Export ──────────────────────────────────────────────────────────────────
 
-  private async exportPDF() {
+  /** Disables/enables both split-button segments together and updates the
+   *  main segment's label. Pass null to restore the idle "⬇ Export PDF" state. */
+  private setExportBusy(label: string | null): void {
+    const busy = label !== null;
+    this.exportBtn.disabled = busy;
+    this.exportMenuBtn.disabled = busy;
+    this.exportBtn.textContent = label ?? "⬇ Export PDF";
+  }
+
+  /** Ensures a layout exists, then builds the full print-ready HTML document
+   *  (background → header banner → header text → content → footer banner →
+   *  footer text → frame, one page-break-after div per page). Shared by
+   *  exportPDF() (save to a file) and printPDF() (Electron's native print
+   *  dialog) — they diverge only in what they do with the result. Shows its
+   *  own Notice and returns null on failure; callers own the busy state
+   *  around the call. */
+  private async buildExportDocument(): Promise<{ fullHTML: string; layouts: PageLayout[] } | null> {
     const s = this.plugin.settings;
 
-    this.exportBtn.disabled = true;
-    this.exportBtn.textContent = "⬇ Exporting…";
-
-    const resetExportBtn = () => {
-      this.exportBtn.disabled = false;
-      this.exportBtn.textContent = "⬇ Export PDF";
-    };
-
     // Ensure we have a layout — run a full render if the modal was just opened.
-    // The export button is already disabled, so no paint yield is needed.
+    // The export/print button is already disabled, so no paint yield is needed.
     if (!this.layoutCache) {
       // Cancel any pending debounced render — this export render supersedes it.
       if (this.renderDebounceTimer !== null) {
@@ -786,16 +813,14 @@ export class PDFExportModal extends Modal {
         const msg = err instanceof Error ? err.message : String(err);
         new Notice("Advanced PDF Export — render failed: " + msg);
         this.hideLoading();
-        resetExportBtn();
-        return;
+        return null;
       }
     }
 
     const cache = this.layoutCache;
     if (!cache || cache.layouts.length === 0) {
       new Notice("Nothing to export.");
-      resetExportBtn();
-      return;
+      return null;
     }
 
     const { layouts, pw, ph, mTop, mLeft, mRight, footerH, headerH, contentW, contentH, docCSS, fontFamily, accentColor: exportAccent, pageBackground, isRTL } = cache;
@@ -887,6 +912,17 @@ ${pageHTMLParts.join("\n")}
 </body>
 </html>`;
 
+    return { fullHTML, layouts };
+  }
+
+  private async exportPDF() {
+    const s = this.plugin.settings;
+    this.setExportBusy("⬇ Exporting…");
+
+    const built = await this.buildExportDocument();
+    if (!built) { this.setExportBusy(null); return; }
+    const { fullHTML, layouts } = built;
+
     try {
       // Obsidian uses @electron/remote; the legacy `electron.remote` property is
       // undefined in the renderer process of modern Electron versions.
@@ -900,7 +936,7 @@ ${pageHTMLParts.join("\n")}
         filters: [{ name: "PDF", extensions: ["pdf"] }],
       });
       if (res.canceled || !res.filePath) {
-        resetExportBtn();
+        this.setExportBusy(null);
         return;
       }
 
@@ -914,7 +950,7 @@ ${pageHTMLParts.join("\n")}
 
       // Both events can fire for the same load — a flag ensures only the first one acts.
       let exportHandled = false;
-      const cleanupWin = () => { URL.revokeObjectURL(url); win.close(); resetExportBtn(); };
+      const cleanupWin = () => { URL.revokeObjectURL(url); win.close(); this.setExportBusy(null); };
 
       win.webContents.once("did-fail-load", (_event: unknown, _code: number, desc: string) => {
         if (exportHandled) return;
@@ -966,7 +1002,72 @@ ${pageHTMLParts.join("\n")}
       });
     } catch {
       new Notice("Advanced PDF Export requires the Obsidian desktop app.");
-      resetExportBtn();
+      this.setExportBusy(null);
+    }
+  }
+
+  /** Opens Electron's native print dialog (any installed printer, or the OS's
+   *  own "Save as PDF" option) on the same document exportPDF() would save
+   *  directly — same buildExportDocument() path, just handed to print()
+   *  instead of printToPDF()+writeFile(). There's no outline injection here:
+   *  once the dialog is up, the result goes straight from Electron to
+   *  whatever printer or destination the user picked, not back to us. */
+  private async printPDF() {
+    this.setExportBusy("⬇ Preparing to print…");
+
+    const built = await this.buildExportDocument();
+    if (!built) { this.setExportBusy(null); return; }
+    const { fullHTML } = built;
+
+    try {
+      const electron = window as unknown as ElectronBridge;
+      const remote = electron.require("@electron/remote") as ElectronRemote | null;
+      if (!remote?.BrowserWindow) throw new Error("no remote");
+
+      const blob = new Blob([fullHTML], { type: "text/html" });
+      const url  = URL.createObjectURL(blob);
+      const win  = new remote.BrowserWindow({ show: false, webPreferences: { nodeIntegration: false } });
+
+      win.loadURL(url);
+
+      // Both events can fire for the same load — a flag ensures only the first one acts.
+      let printHandled = false;
+      const cleanupWin = () => { URL.revokeObjectURL(url); win.close(); this.setExportBusy(null); };
+
+      win.webContents.once("did-fail-load", (_event: unknown, _code: number, desc: string) => {
+        if (printHandled) return;
+        printHandled = true;
+        new Notice("Advanced PDF Export — failed to load page: " + desc);
+        cleanupWin();
+      });
+
+      win.webContents.once("did-finish-load", () => {
+        if (printHandled) return;
+        printHandled = true;
+
+        // Ensure all @font-face fonts (including inlined MathJax fonts) are loaded
+        // before the print dialog captures the page.
+        win.webContents
+          .executeJavaScript("document.fonts.ready.then(() => true)")
+          .catch(() => true)
+          .then(() => {
+            win.webContents.print({}, (success: boolean, failureReason: string) => {
+              // Electron reports a user-cancelled print job as a failure too —
+              // only surface a Notice for genuine errors.
+              if (!success && failureReason !== "cancelled") {
+                new Notice("Advanced PDF Export — print failed: " + failureReason);
+              }
+              cleanupWin();
+            });
+          })
+          .catch((err: Error) => {
+            new Notice("Advanced PDF Export — failed to render: " + err.message);
+            cleanupWin();
+          });
+      });
+    } catch {
+      new Notice("Advanced PDF Export requires the Obsidian desktop app.");
+      this.setExportBusy(null);
     }
   }
 }

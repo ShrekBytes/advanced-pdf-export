@@ -135,6 +135,28 @@
   pointer-events: none;
 }
 
+/* Export PDF split button: main action + dropdown arrow, one visual unit */
+.mpdf-split-btn {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.mpdf-split-btn-main {
+  border-radius: 5px 0 0 5px;
+}
+
+.mpdf-split-btn-arrow {
+  border-radius: 0 5px 5px 0;
+  padding: 4px 6px;
+  border-left: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.mpdf-split-btn-arrow svg {
+  width: 14px;
+  height: 14px;
+}
+
 .mpdf-page-count {
   font-size: 11px;
   color: var(--text-muted);
