@@ -202,6 +202,8 @@ function buildCodeBlockCSS(s: PDFExportSettings): string {
   const theme = CODE_THEMES[s.codeTheme] ?? CODE_THEMES.none;
   const background = theme.background ?? s.codeBackground;
   const text = theme.text ?? s.bodyColor;
+  const codeFontFamily = resolveCodeFont(s);
+  const ligatures = s.codeFontLigatures ? "normal" : "none";
 
   const tokenRules = Object.entries(theme.tokens ?? {})
     .map(([group, color]) => {
@@ -222,7 +224,8 @@ function buildCodeBlockCSS(s: PDFExportSettings): string {
     overflow: hidden;
   }
   .mpdf-doc pre code {
-    font-family: 'Courier New', monospace;
+    font-family: ${codeFontFamily};
+    font-variant-ligatures: ${ligatures};
     font-size: ${s.codeFontSize}em;
     color: ${text};
     white-space: pre-wrap;
@@ -253,6 +256,13 @@ function hexLuminance(hex: string): number {
 /** Returns the resolved CSS font-family string for the current settings. */
 export function resolveFont(s: PDFExportSettings): string {
   return s.fontFamily === "__custom__" ? (s.customFontName.trim() || "inherit") : s.fontFamily;
+}
+
+/** Returns the resolved CSS font-family string for code blocks (inline and fenced). */
+export function resolveCodeFont(s: PDFExportSettings): string {
+  return s.codeFontFamily === "__custom__"
+    ? (s.customCodeFontName.trim() || "'Courier New', monospace")
+    : s.codeFontFamily;
 }
 
 /** Builds the full `.mpdf-doc` stylesheet (typography, tables, callouts,
@@ -317,7 +327,8 @@ export function buildDocCSS(s: PDFExportSettings, isRTL = false): string {
     color: ${s.bodyColor}cc;
   }
   .mpdf-doc code {
-    font-family: 'Courier New', monospace;
+    font-family: ${resolveCodeFont(s)};
+    font-variant-ligatures: ${s.codeFontLigatures ? "normal" : "none"};
     font-size: ${s.codeFontSize}em;
     background: ${s.codeBackground};
     padding: 1px 4px;

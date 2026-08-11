@@ -181,9 +181,26 @@ export class PDFExportSettingTab extends PluginSettingTab {
           visible: () => s.fontFamily === "__custom__",
         }),
         dropdown("Font size (px)", "fontSize", fontSizeOptions),
+        dropdown("Code font family", "codeFontFamily", {
+          "'Courier New', monospace":     "Courier New",
+          "Consolas, monospace":          "Consolas",
+          "Menlo, Consolas, monospace":   "Menlo",
+          "Monaco, monospace":            "Monaco",
+          "'Fira Code', monospace":       "Fira Code",
+          "'JetBrains Mono', monospace":  "JetBrains Mono",
+          "'Cascadia Code', monospace":   "Cascadia Code",
+          "__custom__":                   "Custom…",
+        }, { desc: "Font used for inline `code` and fenced ``` code blocks ```, independent of the body font above." }),
+        text("Custom code font name", "customCodeFontName", {
+          desc: "CSS font-family value — e.g. \"Iosevka, monospace\". The font must be installed on your system.",
+          placeholder: "e.g. Iosevka, monospace",
+          visible: () => s.codeFontFamily === "__custom__",
+        }),
         dropdown("Code font size", "codeFontSize", {
           "0.75": "0.75em", "0.80": "0.80em", "0.82": "0.82em", "0.85": "0.85em", "0.88": "0.88em", "0.90": "0.90em", "1.0": "1.00em",
         }),
+        toggle("Code ligatures", "codeFontLigatures",
+          "Enables typographic ligatures (e.g. -> and !=) for code fonts that support them, such as Fira Code or JetBrains Mono. Has no visible effect with fonts that don't include ligature glyphs, like Courier New."),
         dropdown("Line height", "lineHeight", {
           "1.4": "Tight (1.4)", "1.6": "Compact (1.6)", "1.75": "Normal (1.75)", "1.85": "Relaxed (1.85)", "2.0": "Double (2.0)",
         }),

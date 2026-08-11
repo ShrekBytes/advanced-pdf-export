@@ -27,6 +27,7 @@ If this plugin saves you time, consider **[supporting the project](https://shrek
 - **Auto-loads active note** — opening from the right-click menu or command palette pre-fills the editor (edits are local, non-destructive)
 - **Seven style presets** — Default, Minimal, Academic, Colorful, Modern, Newspaper, Dark; each fully customisable and resettable
 - **Code syntax themes** — 10+ themes (GitHub Light/Dark, Dracula, Tokyo Night, Monokai, Catppuccin, and more) applied independently of your Obsidian theme
+- **Dedicated code font** — set a font family for `code`/```` ``` ```` blocks separately from the body font, with a ligatures on/off toggle for fonts like Fira Code or JetBrains Mono
 - **Mermaid diagrams** — renders flowcharts, sequence diagrams, and all other Mermaid diagram types
 - **Page breaks** — `///` on its own line for a manual break; optionally auto-insert before every H1 or H2
 - **Page size & orientation** — A4, A3, A5, Letter, Legal, or a fully custom size (mm) × Portrait / Landscape
@@ -127,7 +128,10 @@ All settings take effect after closing the settings panel.
 | Font family | Georgia, Times New Roman, Palatino, Arial, Helvetica, Trebuchet, Courier New, Custom |
 | Custom font name | Any CSS font-family value (e.g. `Inter, sans-serif`); font must be installed on your system |
 | Font size | 10 – 16 px |
+| Code font family | Courier New, Consolas, Menlo, Monaco, Fira Code, JetBrains Mono, Cascadia Code, Custom — applies to inline `code` and fenced ``` code blocks ```, independent of the body font |
+| Custom code font name | Any CSS font-family value (e.g. `Iosevka, monospace`); font must be installed on your system |
 | Code font size | 0.75em – 1.00em |
+| Code ligatures | On by default. Enables typographic ligatures (e.g. `->`, `!=`) for code fonts that support them, such as Fira Code or JetBrains Mono |
 | Line height | Tight (1.4) → Double (2.0) |
 | Paragraph spacing | None → Wide (1em) |
 | Heading scale | 0.8× → 1.2× multiplier applied to all heading sizes |

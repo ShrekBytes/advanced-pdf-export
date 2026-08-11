@@ -33,6 +33,7 @@ export interface DocStyle {
   blockquoteBorderColor: string;
   codeBackground: string;
   codeFontSize: number;
+  codeFontFamily: string;
   codeTheme: string;
   tableHeaderBg: string;
   tableStriped: boolean;
@@ -75,6 +76,10 @@ export interface PDFExportSettings extends DocStyle {
   frameStyle: "solid" | "dashed" | "dotted" | "double" | "groove" | "ridge";
   hideFrontmatter: boolean;
   customFontName: string;
+  /** Used only when codeFontFamily === "__custom__". */
+  customCodeFontName: string;
+  /** Typographic ligatures (e.g. -> and !=) for fonts that support them, such as Fira Code. */
+  codeFontLigatures: boolean;
   autoBreakH1: boolean;
   autoBreakH2: boolean;
   includeFilenameAsTitle: boolean;
@@ -133,6 +138,7 @@ export const PRESETS: Record<string, DocStyle> = {
     blockquoteBorderColor: "#7c6af7",
     codeBackground: "#f0f0f8",
     codeFontSize: 0.85,
+    codeFontFamily: "'Courier New', monospace",
     codeTheme: "github-light",
     tableHeaderBg: "#f0f0f8",
     tableStriped: true,
@@ -156,6 +162,7 @@ export const PRESETS: Record<string, DocStyle> = {
     blockquoteBorderColor: "#ccc",
     codeBackground: "#f4f4f4",
     codeFontSize: 0.82,
+    codeFontFamily: "'Courier New', monospace",
     codeTheme: "none",
     tableHeaderBg: "#efefef",
     tableStriped: false,
@@ -179,6 +186,7 @@ export const PRESETS: Record<string, DocStyle> = {
     blockquoteBorderColor: "#999",
     codeBackground: "#f9f9f9",
     codeFontSize: 0.88,
+    codeFontFamily: "'Courier New', monospace",
     codeTheme: "solarized-light",
     tableHeaderBg: "#e8e8e8",
     tableStriped: false,
@@ -202,6 +210,7 @@ export const PRESETS: Record<string, DocStyle> = {
     blockquoteBorderColor: "#e84393",
     codeBackground: "#f0eaff",
     codeFontSize: 0.85,
+    codeFontFamily: "'Courier New', monospace",
     codeTheme: "dracula",
     tableHeaderBg: "#2d0a4e",
     tableStriped: true,
@@ -225,6 +234,7 @@ export const PRESETS: Record<string, DocStyle> = {
     blockquoteBorderColor: "#0070f3",
     codeBackground: "#f1f5f9",
     codeFontSize: 0.85,
+    codeFontFamily: "'Courier New', monospace",
     codeTheme: "github-dark",
     tableHeaderBg: "#0070f3",
     tableStriped: true,
@@ -248,6 +258,7 @@ export const PRESETS: Record<string, DocStyle> = {
     blockquoteBorderColor: "#111",
     codeBackground: "#f4f4f4",
     codeFontSize: 0.82,
+    codeFontFamily: "'Courier New', monospace",
     codeTheme: "none",
     tableHeaderBg: "#111",
     tableStriped: false,
@@ -271,6 +282,7 @@ export const PRESETS: Record<string, DocStyle> = {
     blockquoteBorderColor: "#818cf8",
     codeBackground: "#0f172a",
     codeFontSize: 0.85,
+    codeFontFamily: "'Courier New', monospace",
     codeTheme: "tokyo-night",
     tableHeaderBg: "#1e293b",
     tableStriped: true,
@@ -310,6 +322,8 @@ export const DEFAULT_SETTINGS: PDFExportSettings = {
   frameStyle: "solid",
   hideFrontmatter: false,
   customFontName: "",
+  customCodeFontName: "",
+  codeFontLigatures: true,
   autoBreakH1: false,
   autoBreakH2: false,
   includeFilenameAsTitle: false,
@@ -346,7 +360,7 @@ export function extractDocStyle(s: PDFExportSettings): DocStyle {
     h1BorderBottom: s.h1BorderBottom, h2BorderBottom: s.h2BorderBottom,
     centerH1: s.centerH1, blockquoteBg: s.blockquoteBg,
     blockquoteBorderColor: s.blockquoteBorderColor, codeBackground: s.codeBackground,
-    codeFontSize: s.codeFontSize, codeTheme: s.codeTheme, tableHeaderBg: s.tableHeaderBg,
+    codeFontSize: s.codeFontSize, codeFontFamily: s.codeFontFamily, codeTheme: s.codeTheme, tableHeaderBg: s.tableHeaderBg,
     tableStriped: s.tableStriped, pageBackground: s.pageBackground,
     marginTop: s.marginTop, marginBottom: s.marginBottom,
     marginLeft: s.marginLeft, marginRight: s.marginRight,
