@@ -57,8 +57,8 @@ export interface PDFExportSettings extends DocStyle {
   showPageNumbers: boolean;
   pageNumberPosition: "center" | "left" | "right";
   pageNumberStart: number;
-  /** Template for rendering the page number string. Supports {{current}}
-   *  and {{total}} placeholders, e.g. "Page {{current}} of {{total}}". */
+  /** Template for rendering the page number string. Supports {{current}},
+   *  {{total}}, and {{title}} placeholders, e.g. "Page {{current}} of {{total}}". */
   pageNumberFormat: string;
   showHeaderOnFirstPage: boolean;
   showFooterOnFirstPage: boolean;

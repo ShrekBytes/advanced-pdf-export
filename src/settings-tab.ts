@@ -277,7 +277,7 @@ export class PDFExportSettingTab extends PluginSettingTab {
         toggle("Show page numbers", "showPageNumbers"),
         dropdown("Page number position", "pageNumberPosition", { left: "Left", center: "Center", right: "Right" }),
         text("Page number format", "pageNumberFormat", {
-          desc: "Use {{current}} and {{total}} as placeholders, e.g. \"Page {{current}} of {{total}}\", \"{{current}}/{{total}}\", or just \"{{current}}\".",
+          desc: "Use {{current}}, {{total}}, and {{title}} as placeholders, e.g. \"Page {{current}} of {{total}}\", \"{{title}} — {{current}}/{{total}}\", or just \"{{current}}\".",
           placeholder: "{{current}} / {{total}}",
         }),
         num("Page number start", "pageNumberStart", { min: 1, desc: "Number assigned to the first visible page number." }),

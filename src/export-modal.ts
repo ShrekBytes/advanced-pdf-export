@@ -560,7 +560,7 @@ export class PDFExportModal extends Modal {
       allPages.push(...paginateEl(sectionEl, contentW, contentH, fullCSS));
     }
 
-    const layouts = buildPageLayouts(allPages, s);
+    const layouts = buildPageLayouts(allPages, s, this.currentFile?.basename ?? "");
     this.layoutCache = { layouts, pw, ph, mTop, mLeft, mRight, footerH, headerH, contentW, contentH, docCSS: fullCSS, fontFamily: resolveFont(s), accentColor: s.accentColor, pageBackground: s.pageBackground, isRTL };
 
     this.drawPreview(this.layoutCache, s.previewScale);

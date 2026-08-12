@@ -452,19 +452,23 @@ export function paginateEl(
 
 // ─── Page layout builder ──────────────────────────────────────────────────────
 
-/** Resolves a page-number format template by substituting the {{current}}
- *  and {{total}} placeholders with the given values. Falls back to the
- *  default "current / total" template when the format is empty. */
-function resolvePageNumberFormat(format: string, current: number, total: number): string {
+/** Resolves a page-number format template by substituting the {{current}},
+ *  {{total}}, and {{title}} placeholders. Falls back to the default
+ *  "current / total" template when the format is empty. {{title}} is
+ *  substituted last so literal "{{current}}"/"{{total}}" text inside the
+ *  note title itself isn't mistaken for a placeholder. */
+function resolvePageNumberFormat(format: string, current: number, total: number, title: string): string {
   const template = format && format.trim() ? format : "{{current}} / {{total}}";
   return template
     .replace(/\{\{\s*current\s*\}\}/g, String(current))
-    .replace(/\{\{\s*total\s*\}\}/g, String(total));
+    .replace(/\{\{\s*total\s*\}\}/g, String(total))
+    .replace(/\{\{\s*title\s*\}\}/g, title);
 }
 
 /** Converts paginated page-node arrays into fully-resolved PageLayout objects,
- *  computing header/footer text and page number strings for each page. */
-export function buildPageLayouts(allPages: HTMLElement[][], s: PDFExportSettings): PageLayout[] {
+ *  computing header/footer text and page number strings for each page.
+ *  noteTitle backs the {{title}} placeholder in pageNumberFormat. */
+export function buildPageLayouts(allPages: HTMLElement[][], s: PDFExportSettings, noteTitle: string): PageLayout[] {
   const totalPages = allPages.length;
   return allPages.map((pageNodes, i) => {
     const pageNum = i + 1;
@@ -474,7 +478,7 @@ export function buildPageLayouts(allPages: HTMLElement[][], s: PDFExportSettings
     // Page-number offset: when footer is hidden on page 1 the numbering shifts by 1.
     const displayNum   = s.showFooterOnFirstPage ? s.pageNumberStart + i       : s.pageNumberStart + (i - 1);
     const displayTotal = s.showFooterOnFirstPage ? s.pageNumberStart + totalPages - 1 : s.pageNumberStart + totalPages - 2;
-    const numStr = resolvePageNumberFormat(s.pageNumberFormat, displayNum, displayTotal);
+    const numStr = resolvePageNumberFormat(s.pageNumberFormat, displayNum, displayTotal, noteTitle);
 
     let footerLeft = "", footerRight = "", footerCenter = "";
     let headerLeft = "", headerCenter = "", headerRight = "";

@@ -192,7 +192,7 @@ All settings take effect after closing the settings panel.
 | Image left/right margin | Insets the banner from the left and right page edges (px) |
 | Show page numbers | Toggle *Page X / Y* display |
 | Page number position | Left, Center, or Right |
-| Page number format | Custom template using `{{current}}` and `{{total}}` placeholders, e.g. `Page {{current}} of {{total}}`, `{{current}}/{{total}}`, or just `{{current}}` (default: `{{current}} / {{total}}`) |
+| Page number format | Custom template using `{{current}}`, `{{total}}`, and `{{title}}` (the note's title) placeholders, e.g. `Page {{current}} of {{total}}`, `{{title}} — {{current}}/{{total}}`, or just `{{current}}` (default: `{{current}} / {{total}}`) |
 | Page number start | Number assigned to the first visible page number (default 1) |
 
 ### Behaviour
