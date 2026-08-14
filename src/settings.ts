@@ -25,6 +25,7 @@ export interface DocStyle {
   headingScale: number;
   accentColor: string;
   bodyColor: string;
+  boldColor: string;
   headingColor: string;
   h1BorderBottom: boolean;
   h2BorderBottom: boolean;
@@ -130,6 +131,7 @@ export const PRESETS: Record<string, DocStyle> = {
     headingScale: 1.0,
     accentColor: "#7c6af7",
     bodyColor: "#1a1a2e",
+    boldColor: "#1a1a2e",
     headingColor: "#0d0d1a",
     h1BorderBottom: false,
     h2BorderBottom: true,
@@ -154,6 +156,7 @@ export const PRESETS: Record<string, DocStyle> = {
     headingScale: 0.88,
     accentColor: "#333",
     bodyColor: "#222",
+    boldColor: "#222",
     headingColor: "#111",
     h1BorderBottom: false,
     h2BorderBottom: false,
@@ -178,6 +181,7 @@ export const PRESETS: Record<string, DocStyle> = {
     headingScale: 0.95,
     accentColor: "#1a3a6b",
     bodyColor: "#000",
+    boldColor: "#000",
     headingColor: "#000",
     h1BorderBottom: true,
     h2BorderBottom: true,
@@ -202,6 +206,7 @@ export const PRESETS: Record<string, DocStyle> = {
     headingScale: 1.05,
     accentColor: "#e84393",
     bodyColor: "#1a1a2e",
+    boldColor: "#1a1a2e",
     headingColor: "#2d0a4e",
     h1BorderBottom: false,
     h2BorderBottom: false,
@@ -226,6 +231,7 @@ export const PRESETS: Record<string, DocStyle> = {
     headingScale: 1.0,
     accentColor: "#0070f3",
     bodyColor: "#111",
+    boldColor: "#111",
     headingColor: "#000",
     h1BorderBottom: false,
     h2BorderBottom: false,
@@ -250,6 +256,7 @@ export const PRESETS: Record<string, DocStyle> = {
     headingScale: 1.1,
     accentColor: "#111",
     bodyColor: "#111",
+    boldColor: "#111",
     headingColor: "#000",
     h1BorderBottom: true,
     h2BorderBottom: true,
@@ -274,6 +281,7 @@ export const PRESETS: Record<string, DocStyle> = {
     headingScale: 1.0,
     accentColor: "#818cf8",
     bodyColor: "#d1d5db",
+    boldColor: "#d1d5db",
     headingColor: "#f1f5f9",
     h1BorderBottom: false,
     h2BorderBottom: true,
@@ -356,7 +364,7 @@ export function extractDocStyle(s: PDFExportSettings): DocStyle {
     name: s.name, fontFamily: s.fontFamily, fontSize: s.fontSize,
     lineHeight: s.lineHeight, paragraphSpacing: s.paragraphSpacing,
     headingScale: s.headingScale, accentColor: s.accentColor,
-    bodyColor: s.bodyColor, headingColor: s.headingColor,
+    bodyColor: s.bodyColor, boldColor: s.boldColor, headingColor: s.headingColor,
     h1BorderBottom: s.h1BorderBottom, h2BorderBottom: s.h2BorderBottom,
     centerH1: s.centerH1, blockquoteBg: s.blockquoteBg,
     blockquoteBorderColor: s.blockquoteBorderColor, codeBackground: s.codeBackground,

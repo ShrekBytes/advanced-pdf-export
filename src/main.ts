@@ -60,6 +60,11 @@ export default class MarkdownPDFPlugin extends Plugin {
       this.settings.codeTheme = PRESETS[this.settings.preset]?.codeTheme ?? DEFAULT_SETTINGS.codeTheme;
     }
 
+    // Migration: boldColor was added per-preset; absent value keeps current body text color.
+    if (data.boldColor === undefined) {
+      this.settings.boldColor = this.settings.bodyColor;
+    }
+
     this.presetSnapshots = data.presetSnapshots ?? {};
     this.validateSettings();
   }

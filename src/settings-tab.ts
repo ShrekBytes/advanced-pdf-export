@@ -234,6 +234,7 @@ export class PDFExportSettingTab extends PluginSettingTab {
       group("Colors", [
         color("Accent color", "accentColor"),
         color("Body text color", "bodyColor"),
+        color("Bold text color", "boldColor"),
         color("Heading color", "headingColor"),
         color("Blockquote background", "blockquoteBg"),
         color("Blockquote border", "blockquoteBorderColor"),
