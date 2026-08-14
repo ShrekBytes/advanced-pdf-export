@@ -284,7 +284,13 @@ export function buildDocCSS(s: PDFExportSettings, isRTL = false): string {
     ${isRTL ? "direction: rtl;" : ""}
   }
   .mpdf-doc *, .mpdf-doc *::before, .mpdf-doc *::after { box-sizing: border-box; }
-  .mpdf-doc strong, .mpdf-doc b { font-weight: 700; font-style: normal; }
+  .mpdf-doc strong, .mpdf-doc b { font-weight: 700; font-style: normal; color: ${s.boldColor}; }
+  .mpdf-doc h1 strong, .mpdf-doc h1 b,
+  .mpdf-doc h2 strong, .mpdf-doc h2 b,
+  .mpdf-doc h3 strong, .mpdf-doc h3 b,
+  .mpdf-doc h4 strong, .mpdf-doc h4 b,
+  .mpdf-doc h5 strong, .mpdf-doc h5 b,
+  .mpdf-doc h6 strong, .mpdf-doc h6 b { color: inherit; }
   .mpdf-doc em, .mpdf-doc i { font-style: italic; font-weight: inherit; }
   .mpdf-doc mark { background: #ffe066; color: inherit; padding: 0 2px; border-radius: 2px; }
   .mpdf-doc del, .mpdf-doc s { text-decoration: line-through; }
