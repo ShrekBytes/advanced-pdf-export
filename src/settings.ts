@@ -356,6 +356,13 @@ export const DEFAULT_SETTINGS: PDFExportSettings = {
   includeOutline: true,
 };
 
+/** Color pickers in the Colors settings group. Used to reset only those
+ *  fields to the active preset's defaults without touching other DocStyle. */
+export const PRESET_COLOR_KEYS = [
+  "accentColor", "bodyColor", "boldColor", "headingColor",
+  "blockquoteBg", "blockquoteBorderColor", "tableHeaderBg", "codeBackground",
+] as const satisfies readonly (keyof DocStyle)[];
+
 /** Extracts only the DocStyle fields from the broader settings object.
  *  Used to snapshot the current look before switching presets, so each
  *  preset can remember per-user tweaks independently. */

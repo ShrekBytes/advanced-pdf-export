@@ -9,7 +9,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import {
-  App, PluginSettingTab,
+  App, PluginSettingTab, ButtonComponent,
   SettingDefinitionItem, SettingDefinitionControl, SettingDefinitionGroup, SettingGroupItem,
 } from "obsidian";
 import type MarkdownPDFPlugin from "./main";
@@ -231,19 +231,36 @@ export class PDFExportSettingTab extends PluginSettingTab {
         }, { visible: () => s.backgroundImageEnabled }),
       ]),
 
-      group("Colors", [
-        color("Accent color", "accentColor"),
-        color("Body text color", "bodyColor"),
-        color("Bold text color", "boldColor"),
-        color("Heading color", "headingColor"),
-        color("Blockquote background", "blockquoteBg"),
-        color("Blockquote border", "blockquoteBorderColor"),
-        color("Table header background", "tableHeaderBg"),
-        color("Code background", "codeBackground"),
-        dropdown("Code syntax theme", "codeTheme", codeThemeOptions, {
-          desc: "Independent of your Obsidian theme. \"None\" uses the body text color and code background above with no highlighting.",
-        }),
-      ]),
+      {
+        ...group("Colors", [
+          color("Accent color", "accentColor"),
+          color("Body text color", "bodyColor"),
+          color("Bold text color", "boldColor"),
+          color("Heading color", "headingColor"),
+          color("Blockquote background", "blockquoteBg"),
+          color("Blockquote border", "blockquoteBorderColor"),
+          color("Table header background", "tableHeaderBg"),
+          color("Code background", "codeBackground"),
+          dropdown("Code syntax theme", "codeTheme", codeThemeOptions, {
+            desc: "Independent of your Obsidian theme. \"None\" uses the body text color and code background above with no highlighting.",
+          }),
+        ]),
+        extraButtons: [
+          (extra) => {
+            const host = extra.extraSettingsEl.parentElement;
+            extra.extraSettingsEl.detach();
+            if (!host) return;
+            new ButtonComponent(host)
+              .setButtonText("Reset")
+              .setTooltip("Reset colors to this preset's defaults")
+              .onClick(() => {
+                this.plugin.resetPresetColors();
+                void this.markDirty();
+                this.update();
+              });
+          },
+        ],
+      },
 
       group("Header", [
         toggle("Show header", "showHeader"),
