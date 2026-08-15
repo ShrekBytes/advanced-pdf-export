@@ -1007,7 +1007,7 @@ ${pageHTMLParts.join("\n")}
             console.warn("[advanced-pdf-export] outline injection failed:", outlineErr);
           }
         }
-        electron.require("fs").writeFile(res.filePath!, data, (err: Error | null) => {
+        electron.require("fs").writeFile(res.filePath, data, (err: Error | null) => {
           if (err) new Notice("Advanced PDF Export — failed to save: " + err.message);
           else     new Notice("✓ PDF saved — " + res.filePath);
           cleanupWin();
