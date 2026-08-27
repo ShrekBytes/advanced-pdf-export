@@ -8,7 +8,7 @@
 
 import { Menu, Plugin, TFile } from "obsidian";
 import {
-  DocStyle, PDFExportSettings, PRESETS, DEFAULT_SETTINGS, extractDocStyle,
+  DocStyle, PDFExportSettings, PRESETS, DEFAULT_SETTINGS, extractDocStyle, PRESET_COLOR_KEYS,
 } from "./settings";
 import { PDFExportModal } from "./export-modal";
 import { PDFExportSettingTab } from "./settings-tab";
@@ -127,5 +127,22 @@ export default class MarkdownPDFPlugin extends Plugin {
     }
     this.settings.preset = key;
     Object.assign(this.settings, p, reset ? {} : (this.presetSnapshots[key] ?? {}));
+  }
+
+  /** Restores the Colors-group pickers of the active preset to PRESETS defaults.
+   *  Other presets' snapshots and non-color settings are left untouched. */
+  resetPresetColors(): void {
+    const key = this.settings.preset;
+    const p = PRESETS[key];
+    if (!p) return;
+    for (const k of PRESET_COLOR_KEYS) {
+      this.settings[k] = p[k];
+    }
+    const snap = this.presetSnapshots[key];
+    if (snap) {
+      for (const k of PRESET_COLOR_KEYS) {
+        snap[k] = p[k];
+      }
+    }
   }
 }
