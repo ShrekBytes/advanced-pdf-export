@@ -154,6 +154,7 @@ All settings take effect after closing the settings panel.
 |---|---|
 | Accent color | Primary accent used for links, borders, and highlights |
 | Body text color | Main document text color |
+| Bold text color | Color of `**bold**` / `<strong>` in body text. Headings are unaffected |
 | Heading color | Color applied to all heading levels |
 | Blockquote background | Fill color behind blockquote blocks |
 | Blockquote border | Left border color on blockquotes |
