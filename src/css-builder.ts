@@ -317,7 +317,7 @@ export function buildDocCSS(s: PDFExportSettings, isRTL = false): string {
     margin: ${Math.round(16 * hs)}px 0 ${Math.round(8 * hs)}px;
     letter-spacing: 0.01em;
   }
-  .mpdf-doc h4 { font-size: ${Math.round(13 * hs)}px; font-weight: 700; color: ${s.headingColor}; margin: 12px 0 6px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .mpdf-doc h4 { font-size: ${Math.round(13 * hs)}px; font-weight: 700; color: ${s.headingColor}; margin: 12px 0 6px; letter-spacing: 0.04em; }
   .mpdf-doc h5 { font-size: ${Math.round(12 * hs)}px; font-weight: 600; color: ${s.headingColor}; margin: 10px 0 4px; font-style: italic; }
   .mpdf-doc h6 { font-size: ${Math.round(11 * hs)}px; font-weight: 600; color: ${s.bodyColor}; margin: 8px 0 4px; font-style: italic; opacity: 0.75; }
   .mpdf-doc p { margin: 0 0 ${s.paragraphSpacing}em; }
