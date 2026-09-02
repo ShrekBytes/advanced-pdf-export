@@ -305,7 +305,7 @@ export function buildDocCSS(s: PDFExportSettings, isRTL = false): string {
   }
   .mpdf-doc h2 {
     font-size: ${Math.round(17 * hs)}px;
-    font-weight: 600;
+    font-weight: 700;
     color: ${s.headingColor};
     margin: ${Math.round(20 * hs)}px 0 ${Math.round(10 * hs)}px;
     ${s.h2BorderBottom ? `border-bottom: 0.5px solid ${s.accentColor}55; padding-bottom: 5px;` : ""}
