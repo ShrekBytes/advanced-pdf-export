@@ -65,6 +65,12 @@ export default class MarkdownPDFPlugin extends Plugin {
       this.settings.boldColor = this.settings.bodyColor;
     }
 
+    // Migration: tableBorderColor was added per-preset; absent value uses accent
+    // (matching the previous hardcoded th/td border: accentColor + 33 alpha).
+    if (data.tableBorderColor === undefined) {
+      this.settings.tableBorderColor = this.settings.accentColor;
+    }
+
     this.presetSnapshots = data.presetSnapshots ?? {};
     this.validateSettings();
   }

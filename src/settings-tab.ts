@@ -240,6 +240,7 @@ export class PDFExportSettingTab extends PluginSettingTab {
           color("Blockquote background", "blockquoteBg"),
           color("Blockquote border", "blockquoteBorderColor"),
           color("Table header background", "tableHeaderBg"),
+          color("Table border color", "tableBorderColor"),
           color("Code background", "codeBackground"),
           dropdown("Code syntax theme", "codeTheme", codeThemeOptions, {
             desc: "Independent of your Obsidian theme. \"None\" uses the body text color and code background above with no highlighting.",
