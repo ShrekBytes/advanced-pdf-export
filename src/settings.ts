@@ -37,6 +37,7 @@ export interface DocStyle {
   codeFontFamily: string;
   codeTheme: string;
   tableHeaderBg: string;
+  tableBorderColor: string;
   tableStriped: boolean;
   pageBackground: string;
   marginTop: number;
@@ -143,6 +144,7 @@ export const PRESETS: Record<string, DocStyle> = {
     codeFontFamily: "'Courier New', monospace",
     codeTheme: "github-light",
     tableHeaderBg: "#f0f0f8",
+    tableBorderColor: "#7c6af7",
     tableStriped: true,
     pageBackground: "#ffffff",
     marginTop: 20, marginBottom: 20, marginLeft: 25, marginRight: 25,
@@ -168,6 +170,7 @@ export const PRESETS: Record<string, DocStyle> = {
     codeFontFamily: "'Courier New', monospace",
     codeTheme: "none",
     tableHeaderBg: "#efefef",
+    tableBorderColor: "#333",
     tableStriped: false,
     pageBackground: "#ffffff",
     marginTop: 16, marginBottom: 16, marginLeft: 20, marginRight: 20,
@@ -193,6 +196,7 @@ export const PRESETS: Record<string, DocStyle> = {
     codeFontFamily: "'Courier New', monospace",
     codeTheme: "solarized-light",
     tableHeaderBg: "#e8e8e8",
+    tableBorderColor: "#1a3a6b",
     tableStriped: false,
     pageBackground: "#ffffff",
     marginTop: 25, marginBottom: 25, marginLeft: 30, marginRight: 30,
@@ -218,6 +222,7 @@ export const PRESETS: Record<string, DocStyle> = {
     codeFontFamily: "'Courier New', monospace",
     codeTheme: "dracula",
     tableHeaderBg: "#2d0a4e",
+    tableBorderColor: "#e84393",
     tableStriped: true,
     pageBackground: "#ffffff",
     marginTop: 20, marginBottom: 20, marginLeft: 25, marginRight: 25,
@@ -243,6 +248,7 @@ export const PRESETS: Record<string, DocStyle> = {
     codeFontFamily: "'Courier New', monospace",
     codeTheme: "github-dark",
     tableHeaderBg: "#0070f3",
+    tableBorderColor: "#0070f3",
     tableStriped: true,
     pageBackground: "#ffffff",
     marginTop: 20, marginBottom: 20, marginLeft: 25, marginRight: 25,
@@ -268,6 +274,7 @@ export const PRESETS: Record<string, DocStyle> = {
     codeFontFamily: "'Courier New', monospace",
     codeTheme: "none",
     tableHeaderBg: "#111",
+    tableBorderColor: "#111",
     tableStriped: false,
     pageBackground: "#ffffff",
     marginTop: 18, marginBottom: 18, marginLeft: 20, marginRight: 20,
@@ -293,6 +300,7 @@ export const PRESETS: Record<string, DocStyle> = {
     codeFontFamily: "'Courier New', monospace",
     codeTheme: "tokyo-night",
     tableHeaderBg: "#1e293b",
+    tableBorderColor: "#818cf8",
     tableStriped: true,
     pageBackground: "#111827",
     marginTop: 20, marginBottom: 20, marginLeft: 25, marginRight: 25,
@@ -360,7 +368,7 @@ export const DEFAULT_SETTINGS: PDFExportSettings = {
  *  fields to the active preset's defaults without touching other DocStyle. */
 export const PRESET_COLOR_KEYS = [
   "accentColor", "bodyColor", "boldColor", "headingColor",
-  "blockquoteBg", "blockquoteBorderColor", "tableHeaderBg", "codeBackground",
+  "blockquoteBg", "blockquoteBorderColor", "tableHeaderBg", "tableBorderColor", "codeBackground",
 ] as const satisfies readonly (keyof DocStyle)[];
 
 /** Extracts only the DocStyle fields from the broader settings object.
@@ -375,7 +383,8 @@ export function extractDocStyle(s: PDFExportSettings): DocStyle {
     h1BorderBottom: s.h1BorderBottom, h2BorderBottom: s.h2BorderBottom,
     centerH1: s.centerH1, blockquoteBg: s.blockquoteBg,
     blockquoteBorderColor: s.blockquoteBorderColor, codeBackground: s.codeBackground,
-    codeFontSize: s.codeFontSize, codeFontFamily: s.codeFontFamily, codeTheme: s.codeTheme, tableHeaderBg: s.tableHeaderBg,
+    codeFontSize: s.codeFontSize, codeFontFamily: s.codeFontFamily, codeTheme: s.codeTheme,
+    tableHeaderBg: s.tableHeaderBg, tableBorderColor: s.tableBorderColor,
     tableStriped: s.tableStriped, pageBackground: s.pageBackground,
     marginTop: s.marginTop, marginBottom: s.marginBottom,
     marginLeft: s.marginLeft, marginRight: s.marginRight,

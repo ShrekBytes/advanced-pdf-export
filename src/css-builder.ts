@@ -361,10 +361,10 @@ export function buildDocCSS(s: PDFExportSettings, isRTL = false): string {
     padding: 6px 10px;
     text-align: start;
     font-weight: 600;
-    border: 0.5px solid ${s.accentColor}33;
+    border: 0.5px solid ${s.tableBorderColor}33;
     font-size: 0.9em;
   }
-  .mpdf-doc td { padding: 5px 10px; border: 0.5px solid ${s.bodyColor}22; vertical-align: top; }
+  .mpdf-doc td { padding: 5px 10px; border: 0.5px solid ${s.tableBorderColor}33; vertical-align: top; }
   ${s.tableStriped ? `.mpdf-doc tbody tr:nth-child(even) { background: ${s.tableHeaderBg}55; }` : ""}
 
   /* Callouts — override theme styles with !important so preview and export are

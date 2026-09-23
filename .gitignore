@@ -10,3 +10,6 @@ node_modules/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Plugin settings (when symlinked into a vault)
+data.json
