@@ -1,5 +1,16 @@
 [
   {
+    "version": "4.7.0",
+    "date": "2026-09-30",
+    "changes": [
+      "Fixed make the commit check and the generator agree on what is readable.",
+      "Fixed fail the changelog generator loudly instead of guessing.",
+      "Added release notes after an update.",
+      "Fixed keep markdown table column alignment in headers.",
+      "Added pre-fill the save dialog with the note's folder and name."
+    ]
+  },
+  {
     "version": "4.6.0",
     "date": "2026-09-23",
     "changes": [
@@ -45,21 +56,22 @@
   {
     "version": "4.2.0",
     "date": "2026-07-10",
-    "changes": ["Added a customizable page number format."]
+    "changes": [
+      "Added a customizable page number format."
+    ]
   },
   {
     "version": "4.1.8",
     "date": "2026-07-03",
-    "changes": ["Reduced the delay before MathJax content is rendered."]
+    "changes": [
+      "Reduced the delay before MathJax content is rendered."
+    ]
   },
   {
     "version": "4.1.7",
     "date": "2026-07-03",
-    "changes": ["Fixed rendering sometimes looping."]
-  },
-  {
-    "version": "4.1.6",
-    "date": "2026-07-02",
-    "changes": ["Fixed a missing LaTeX math symbol."]
+    "changes": [
+      "Fixed rendering sometimes looping."
+    ]
   }
 ]
