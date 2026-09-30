@@ -102,16 +102,27 @@ describe("entryFor", () => {
 });
 
 describe("releaseHistory", () => {
+  /** A comparable number per version, written out here rather than imported
+   *  from changelog.ts so the assertion below does not lean on the very
+   *  comparator it is checking. */
+  const rank = (version: string) => {
+    const [major = 0, minor = 0, patch = 0] = version.split(".").map(Number);
+    return major * 1e6 + minor * 1e3 + patch;
+  };
+
   it("lists newest first even if the source file is reordered", () => {
-    // The expectation is spelled out rather than derived from CHANGELOG: an
-    // expected value computed with the same comparator as the implementation
-    // moves with it, and would pass even if the sort were plain string order,
-    // which puts 4.9.0 after 4.10.0.
-    const shuffled = [...CHANGELOG].reverse();
-    expect(releaseHistory(shuffled).map((e) => e.version)).toEqual([
-      "4.6.0", "4.5.0", "4.4.0", "4.3.0", "4.2.2",
-      "4.2.1", "4.2.0", "4.1.8", "4.1.7", "4.1.6",
-    ]);
+    // Asserted as properties rather than against a spelled-out list of versions.
+    // changelog.json is generated on every release, so pinning its contents
+    // broke this test each time one shipped. A spelled-out list could not catch
+    // a string comparator either — every real version has a single-digit minor,
+    // so text and numeric order agree until 4.10.0 — which is what the synthetic
+    // case below is for. What is left to check on the real data is that the
+    // order is newest-first and that no entry is dropped.
+    const sorted = releaseHistory([...CHANGELOG].reverse());
+
+    expect(sorted).toHaveLength(CHANGELOG.length);
+    const ranks = sorted.map((entry) => rank(entry.version));
+    expect(ranks).toEqual([...ranks].sort((a, b) => b - a));
   });
 
   it("orders versions numerically, not as text", () => {
