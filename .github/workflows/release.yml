@@ -68,6 +68,42 @@ jobs:
             main.js
             styles.css
 
+      # Keeps main in step with what shipped. main.js belongs here, not just
+      # changelog.json: the bundle is built from a tree the two steps above
+      # changed, so a build artifact left uncommitted is one release behind the
+      # asset this workflow publishes. The Obsidian store rebuilds the plugin
+      # from the tag and compares the result to the released main.js, so the
+      # tag below has to point at the commit that holds this build. Touches
+      # only these two files, so it cannot re-trigger this workflow, which
+      # filters on manifest.json. checkout leaves a detached HEAD on a push
+      # event, so this pushes an explicit refspec rather than pulling — there
+      # is no upstream to rebase.
+      - name: Commit generated release files
+        if: steps.version.outputs.changed == 'true'
+        run: |
+          if git diff --quiet -- src/changelog.json main.js; then
+            echo "No change to the generated files."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add src/changelog.json main.js
+          git commit -m "chore: release notes and bundle for ${{ steps.version.outputs.new }}"
+          for attempt in 1 2 3; do
+            if git push origin HEAD:main; then
+              echo "Pushed generated files."
+              exit 0
+            fi
+            echo "Push attempt $attempt failed; rebasing onto main."
+            git fetch origin main
+            git rebase FETCH_HEAD
+          done
+          echo "Could not push the generated release files after 3 attempts."
+          exit 1
+
+      # Tags HEAD, which now holds the bundle the previous step committed.
+      # Tagging before that commit is what left 4.7.0 and 4.7.1 pointing at
+      # the previous build, which the store reports as a build mismatch.
       - name: Create and push tag
         if: steps.version.outputs.changed == 'true'
         run: |
@@ -89,30 +125,3 @@ jobs:
             main.js \
             manifest.json \
             styles.css
-
-      # Keeps main in step with what shipped. Touches only changelog.json, so
-      # it cannot re-trigger this workflow, which filters on manifest.json.
-      # checkout leaves a detached HEAD on a push event, so this pushes an
-      # explicit refspec rather than pulling — there is no upstream to rebase.
-      - name: Commit generated release notes
-        if: steps.version.outputs.changed == 'true'
-        run: |
-          if git diff --quiet -- src/changelog.json; then
-            echo "No change to src/changelog.json."
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add src/changelog.json
-          git commit -m "chore: release notes for ${{ steps.version.outputs.new }}"
-          for attempt in 1 2 3; do
-            if git push origin HEAD:main; then
-              echo "Pushed release notes."
-              exit 0
-            fi
-            echo "Push attempt $attempt failed; rebasing onto main."
-            git fetch origin main
-            git rebase FETCH_HEAD
-          done
-          echo "Could not push the generated release notes after 3 attempts."
-          exit 1

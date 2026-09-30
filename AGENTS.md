@@ -4,7 +4,7 @@ Guidance for agents working in this repo. See `README.md` for what the plugin do
 
 ## Project shape
 
-An Obsidian plugin. TypeScript sources live flat in `src/`, bundled to `main.js` by esbuild — `main.js` is a build artefact, not a source file. Styles are in `styles.css` and `src/css-builder.ts`.
+An Obsidian plugin. TypeScript sources live flat in `src/`, bundled to `main.js` by esbuild — `main.js` is a build artefact, not a source file, so never hand-edit it. It is tracked because the release workflow commits the build it publishes; revert that commit and you break the tag, the release, and the store's build check together. Styles are in `styles.css` and `src/css-builder.ts`.
 
 Unit tests sit next to the file they cover as `src/*.test.ts` and run under Vitest. The `obsidian` package ships types only, so a module that imports it can't be tested — keep testable logic import-free.
 
@@ -23,9 +23,16 @@ Run `npm test` and `npm run build` before considering a change done. Both run in
 Bump `version` in `manifest.json` and merge. That edit is the only trigger:
 `release.yml` diffs it, and when it changes, runs
 `scripts/generate-changelog.mjs` to write this release's entry into
-`src/changelog.json` from the commits since the last tag, builds, tags, and
-publishes. The generated file is committed back to `main` afterwards, so
-`main` and the published bundle never disagree.
+`src/changelog.json` from the commits since the last tag, then builds. Both
+generated files — `src/changelog.json` and the built `main.js` — are
+committed back to `main`, and the tag is created from that commit.
+
+Order matters here, and the store enforces it: the Obsidian store rebuilds
+the plugin from the tag and compares that build to the released `main.js`, so
+the tag, `main`, and the release asset must all hold the same build. Anything
+the build reads has to be committed *before* the tag is taken, not after. A
+release that commits its generated files but tags the commit before them ships
+an asset the store cannot reproduce — which is what 4.7.0 and 4.7.1 did.
 
 Commit subjects are the source of the notes, so write them for a user:
 
