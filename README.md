@@ -88,7 +88,7 @@ Search for **Advanced PDF Export** in **Settings → Community Plugins → Brows
 
 **Change style or page settings** — use the **Style**, **Size**, and **Orient** dropdowns in the topbar. Changes re-render automatically.
 
-**Export** — click **⬇ Export PDF** to open a native save dialog and write the PDF to disk. Click the **▾** next to it for **Print…**, which sends the document to any installed printer or your OS's own "Save as PDF" dialog instead.
+**Export** — click **⬇ Export PDF** to open a native save dialog and write the PDF to disk. The dialog opens pre-filled in the note's own folder with the note's file name as `.pdf`, so there's nothing to re-pick each time; turn off **Settings → Output → Pre-fill save location** if you'd rather it start from scratch. Click the **▾** next to the button for **Print…**, which sends the document to any installed printer or your OS's own "Save as PDF" dialog instead.
 
 **Open settings** — click the ⚙ icon in the topbar, or go to **Settings → Advanced PDF Export**.
 
@@ -195,6 +195,12 @@ All settings take effect after closing the settings panel.
 | Page number position | Left, Center, or Right |
 | Page number format | Custom template using `{{current}}`, `{{total}}`, and `{{title}}` (the note's title) placeholders, e.g. `Page {{current}} of {{total}}`, `{{title}} — {{current}}/{{total}}`, or just `{{current}}` (default: `{{current}} / {{total}}`) |
 | Page number start | Number assigned to the first visible page number (default 1) |
+
+### Output
+
+| Setting | Description |
+|---|---|
+| Pre-fill save location | Opens the save dialog in the note's own folder with the note's filename filled in as `.pdf`, so `Notes/Ideas/xyz.md` suggests `Notes/Ideas/xyz.pdf`. You still confirm the location, and an existing file still prompts before being replaced. Ignored when exporting typed or pasted content with no note behind it (default on) |
 
 ### Behaviour
 

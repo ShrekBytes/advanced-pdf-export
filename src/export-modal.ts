@@ -10,7 +10,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import {
-  App, Component, MarkdownView, Menu, Modal, Notice, TFile, setIcon,
+  App, Component, FileSystemAdapter, MarkdownView, Menu, Modal, Notice, TFile, setIcon,
 } from "obsidian";
 import type MarkdownPDFPlugin from "./main";
 import { PAGE_SIZES, PRESETS, PDFExportSettings } from "./settings";
@@ -26,6 +26,7 @@ import {
 import {
   paginateEl, buildPageLayouts, extractOutlineEntries, injectPDFOutline, PageLayout,
 } from "./paginator";
+import { pdfFileName, resolveSaveLocation } from "./save-path";
 
 // ─── Electron type shims ────────────────────────────────────────────────────────
 // Minimal shims — just enough for the PDF export path below.
@@ -949,6 +950,14 @@ ${pageHTMLParts.join("\n")}
     return { win, url };
   }
 
+  /** Resolves a vault-relative folder to an absolute OS path, so the save
+   *  dialog can be pointed at it. Null when the vault isn't backed by a local
+   *  folder — only the desktop app's filesystem adapter exposes these. */
+  private absoluteVaultPath(vaultFolder: string): string | null {
+    const adapter = this.app.vault.adapter;
+    return adapter instanceof FileSystemAdapter ? adapter.getFullPath(vaultFolder) : null;
+  }
+
   private async exportPDF() {
     const s = this.plugin.settings;
     this.setExportBusy("⬇ Exporting…");
@@ -964,9 +973,20 @@ ${pageHTMLParts.join("\n")}
       const remote = electron.require("@electron/remote") as ElectronRemote | null;
       if (!remote?.dialog) throw new Error("no remote");
 
+      // Pre-filled: open on the note's own folder with its name as ".pdf", so the
+      // user isn't re-picking the same folder every export. Both branches derive
+      // the name the same way, so toggling the setting never changes the file
+      // name — only whether a folder is suggested. Falls back to a bare file
+      // name (and so to whatever the OS remembers) when there's no note or the
+      // vault isn't a local folder.
+      const prefill = s.prefillSaveLocation
+        ? resolveSaveLocation(this.currentFile, (folder) => this.absoluteVaultPath(folder))
+        : null;
+      const fallbackName = pdfFileName(this.currentFile?.basename) ?? "export.pdf";
+
       const res = await remote.dialog.showSaveDialog({
         title: "Save PDF",
-        defaultPath: (this.currentFile?.basename ?? "export") + ".pdf",
+        defaultPath: prefill ?? fallbackName,
         filters: [{ name: "PDF", extensions: ["pdf"] }],
       });
       if (res.canceled || !res.filePath) {

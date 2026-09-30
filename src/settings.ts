@@ -118,6 +118,11 @@ export interface PDFExportSettings extends DocStyle {
   backgroundImageOpacity: number;
   /** When true, headings H1–H6 are embedded as a bookmark tree in the exported PDF. */
   includeOutline: boolean;
+
+  // ── Save location ──────────────────────────────────────────────────────────
+  /** When true, the save dialog opens in the note's own folder with the note's
+   *  file name pre-filled as ".pdf". Ignored when there is no source note. */
+  prefillSaveLocation: boolean;
 }
 
 // ─── Style Presets ────────────────────────────────────────────────────────────
@@ -362,6 +367,8 @@ export const DEFAULT_SETTINGS: PDFExportSettings = {
   backgroundImageOpacity: 1,
   // Outline / bookmarks
   includeOutline: true,
+  // Save location
+  prefillSaveLocation: true,
 };
 
 /** Color pickers in the Colors settings group. Used to reset only those

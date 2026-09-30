@@ -3,7 +3,8 @@
 //
 // One long, linear form grouped into the same sections shown in the README
 // (Style Preset, Page, Margin & Frame, Typography, Background, Colors,
-// Header, Footer, Behaviour). Kept separate from export-modal.ts: this is a
+// Header, Footer, Output, Behaviour). Kept separate from export-modal.ts: this
+// is a
 // different UI surface (global defaults vs. a single export session) that
 // doesn't share rendering logic with the modal, only the settings object.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -300,6 +301,11 @@ export class PDFExportSettingTab extends PluginSettingTab {
           placeholder: "{{current}} / {{total}}",
         }),
         num("Page number start", "pageNumberStart", { min: 1, desc: "Number assigned to the first visible page number." }),
+      ]),
+
+      group("Output", [
+        toggle("Pre-fill save location", "prefillSaveLocation",
+          "Open the save dialog in the note's own folder with the note's file name filled in as .pdf. You still confirm where it goes. Ignored when exporting typed or pasted content with no note behind it."),
       ]),
 
       group("Behaviour", [
