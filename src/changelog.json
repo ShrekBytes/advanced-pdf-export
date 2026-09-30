@@ -1,5 +1,13 @@
 [
   {
+    "version": "4.7.1",
+    "date": "2026-09-30",
+    "changes": [
+      "Added release notes on the GitHub release page.",
+      "Fixed release notes that read as sentences."
+    ]
+  },
+  {
     "version": "4.7.0",
     "date": "2026-09-30",
     "changes": [
@@ -65,13 +73,6 @@
     "date": "2026-07-03",
     "changes": [
       "Reduced the delay before MathJax content is rendered."
-    ]
-  },
-  {
-    "version": "4.1.7",
-    "date": "2026-07-03",
-    "changes": [
-      "Fixed rendering sometimes looping."
     ]
   }
 ]
