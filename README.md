@@ -19,6 +19,7 @@ If this plugin saves you time, consider **[supporting the project](https://shrek
 - [Installation](#installation)
 - [Usage](#usage)
 - [Settings Reference](#settings-reference)
+- [What's new](#whats-new)
 - [License](#license)
 
 ## Features
@@ -216,6 +217,10 @@ All settings take effect after closing the settings panel.
 | Center H1 | Centers all H1 headings |
 | Striped table rows | Alternating row background on even rows |
 | Include PDF outline (bookmarks) | Embeds a bookmark tree built from headings H1–H6 into the exported PDF; most PDF readers display it in a side panel for quick navigation |
+
+## What's new
+
+After an update, the plugin opens a window listing what changed in that version. The ten most recent releases are always available from the **What's new** button at the bottom of the settings tab.
 
 ## License
 

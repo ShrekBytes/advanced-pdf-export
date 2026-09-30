@@ -331,3 +331,46 @@
   left: 0;
   transform-origin: top left;
 }
+
+/* Release notes window */
+.mpdf-notes-modal {
+  width: 90vw;
+  max-width: var(--modal-max-width-narrow, 640px);
+}
+
+.mpdf-notes {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.mpdf-notes-entry + .mpdf-notes-entry {
+  margin-top: var(--size-4-3);
+  padding-top: var(--size-4-3);
+  border-top: 1px solid var(--background-modifier-border);
+}
+
+.mpdf-notes-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--size-4-2);
+  margin-bottom: var(--size-4-1);
+}
+
+.mpdf-notes-version {
+  font-weight: var(--font-semibold);
+}
+
+.mpdf-notes-date {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}
+
+.mpdf-notes-list {
+  margin: 0;
+  padding-inline-start: var(--size-4-4);
+}
+
+.mpdf-notes-empty {
+  color: var(--text-muted);
+  font-style: italic;
+}

@@ -321,6 +321,15 @@ export class PDFExportSettingTab extends PluginSettingTab {
         toggle("Include PDF outline (bookmarks)", "includeOutline",
           "Embeds a bookmark tree into the exported PDF. Most PDF readers display it in a side panel for quick navigation."),
       ]),
+
+      // Not a setting — a way back into the release notes after the update
+      // popup has been dismissed. Lives at the end of the tab because it is
+      // about the plugin rather than about any one export.
+      {
+        name: "What's new",
+        desc: "See what changed in the most recent versions.",
+        action: () => this.plugin.openReleaseNotes(),
+      },
     ];
   }
 }

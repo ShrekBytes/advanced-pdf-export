@@ -34,3 +34,12 @@ _Avoid_: theme, formatting
 A named, reusable snapshot of the document style, applied wholesale on
 selection.
 _Avoid_: preset, theme, template
+
+**Release notes**:
+The user-facing changes shipped in one version of the plugin, listed newest
+first. Shown for the version you updated to after an update, and for the ten
+most recent from Settings.
+_Avoid_: update notes, what's new
+
+The file holding them is `changelog.ts`, and the window is
+`ReleaseNotesModal` — implementation names, not domain language.

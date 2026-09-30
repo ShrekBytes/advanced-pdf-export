@@ -13,14 +13,23 @@ import {
 import { PDFExportModal } from "./export-modal";
 import { PDFExportSettingTab } from "./settings-tab";
 import { warmUpMathJax } from "./markdown";
+import { pendingRelease, releaseHistory } from "./changelog";
+import { ReleaseNotesModal } from "./changelog-modal";
 
 export default class MarkdownPDFPlugin extends Plugin {
   declare settings: PDFExportSettings;
   activeModal: PDFExportModal | null = null;
+  activeNotesModal: ReleaseNotesModal | null = null;
   presetSnapshots: Record<string, DocStyle> = {};
+  /** The last version whose release notes were shown. Persisted beside the
+   *  settings; undefined until the plugin has shown notes for some version. */
+  lastSeenVersion: string | undefined;
 
   async onload() {
     await this.loadSettings();
+    // Deferred past startup: opening a window from onload races Obsidian's own
+    // layout work, which leaves the notes behind a half-built workspace.
+    this.app.workspace.onLayoutReady(() => this.showPendingReleaseNotes());
     // Fire-and-forget: pay MathJax's one-time cold-start cost now, in the
     // background, so it's already done by the time the user opens the export
     // modal instead of adding several seconds to their first real render.
@@ -44,6 +53,7 @@ export default class MarkdownPDFPlugin extends Plugin {
 
   onunload() {
     this.activeModal?.close();
+    this.activeNotesModal?.close();
   }
 
   openModal(file?: TFile) {
@@ -51,8 +61,36 @@ export default class MarkdownPDFPlugin extends Plugin {
     new PDFExportModal(this.app, this, file).open();
   }
 
+  /** Opens the full release-notes history. Backs the Settings button.
+   *  Replaces any notes window already open, matching openModal() above. */
+  openReleaseNotes(): void {
+    this.activeNotesModal?.close();
+    this.activeNotesModal = new ReleaseNotesModal(this.app, this, releaseHistory(), "What's new");
+    this.activeNotesModal.open();
+  }
+
+  /** Shows the running version's release notes once, the first time this
+   *  version is seen. First install and a normal update take the same path:
+   *  each shows exactly the running version's entry. */
+  private showPendingReleaseNotes(): void {
+    const entry = pendingRelease(this.manifest.version, this.lastSeenVersion);
+    if (!entry) return;
+    // Stamp before opening, so a version that arrives while the window is
+    // still open can't queue a second one on the next layout-ready.
+    this.lastSeenVersion = this.manifest.version;
+    void this.saveSettings();
+    this.activeNotesModal?.close();
+    this.activeNotesModal = new ReleaseNotesModal(
+      this.app, this, [entry], `Advanced PDF Export ${entry.version}`,
+    );
+    this.activeNotesModal.open();
+  }
+
   async loadSettings() {
-    const data = (await this.loadData() ?? {}) as Partial<PDFExportSettings> & { presetSnapshots?: Record<string, DocStyle> };
+    const data = (await this.loadData() ?? {}) as Partial<PDFExportSettings> & {
+      presetSnapshots?: Record<string, DocStyle>;
+      lastSeenVersion?: string;
+    };
     this.settings = Object.assign({}, DEFAULT_SETTINGS, data);
 
     // Migration: codeTheme was added per-preset; absent value adopts the active preset's default.
@@ -72,6 +110,7 @@ export default class MarkdownPDFPlugin extends Plugin {
     }
 
     this.presetSnapshots = data.presetSnapshots ?? {};
+    this.lastSeenVersion = data.lastSeenVersion;
     this.validateSettings();
   }
 
@@ -115,7 +154,11 @@ export default class MarkdownPDFPlugin extends Plugin {
   }
 
   async saveSettings() {
-    await this.saveData({ ...this.settings, presetSnapshots: this.presetSnapshots });
+    await this.saveData({
+      ...this.settings,
+      presetSnapshots: this.presetSnapshots,
+      lastSeenVersion: this.lastSeenVersion,
+    });
   }
 
   async saveSettingsAndRender() {
