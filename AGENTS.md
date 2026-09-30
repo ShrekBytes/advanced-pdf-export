@@ -12,9 +12,38 @@ Unit tests sit next to the file they cover as `src/*.test.ts` and run under Vite
 | --------- | --------------------------------------------------- |
 | `npm run dev`     | esbuild in watch mode for fast iteration |
 | `npm run build`   | `tsc --noEmit` typecheck, then a production bundle   |
-| `npm test`        | Vitest, all `src/*.test.ts`                         |
+| `npm test`        | Vitest, all `*.test.ts`                              |
+| `npm run changelog:dry` | Preview the release notes a release would generate |
+| `npm run lint:commits`  | Check commit subjects are conventional          |
 
 Run `npm test` and `npm run build` before considering a change done. Both run in CI on every push and pull request.
+
+## Releasing
+
+Bump `version` in `manifest.json` and merge. That edit is the only trigger:
+`release.yml` diffs it, and when it changes, runs
+`scripts/generate-changelog.mjs` to write this release's entry into
+`src/changelog.json` from the commits since the last tag, builds, tags, and
+publishes. The generated file is committed back to `main` afterwards, so
+`main` and the published bundle never disagree.
+
+Commit subjects are the source of the notes, so write them for a user:
+
+```
+feat: add configurable table border color   →  Added configurable table border color.
+fix: latex math symbol missing              →  Fixed latex math symbol missing.
+chore: bump version to 4.6.0                →  (left out — nothing to tell a user)
+```
+
+`feat`, `fix`, `perf` and `revert` reach the notes. Everything else is
+internal and dropped, as are merge commits and the `Update main.js`-style
+subjects the GitHub web editor produces. A subject that is none of these is
+also dropped — `scripts/check-commits.mjs` fails the build on a pull request
+that introduces one, and the release log lists whatever was skipped so nothing
+disappears quietly.
+
+`src/changelog.json` is generated. Edit `scripts/changelog-entries.mjs` to
+change how subjects are read or rewritten, not the JSON.
 
 ## Agent skills
 

@@ -22,18 +22,32 @@ const CHANGELOG = join(ROOT, "src", "changelog.json");
 const MANIFEST = join(ROOT, "manifest.json");
 
 const git = (...args) =>
-  execFileSync("git", args, { cwd: ROOT, encoding: "utf8" }).trimEnd();
+  execFileSync("git", args, {
+    cwd: ROOT,
+    encoding: "utf8",
+    // Capture git's stderr rather than letting it print, so failures surface
+    // once, as a message from here.
+    stdio: ["ignore", "pipe", "pipe"],
+  }).trimEnd();
 
-/** The most recent tag reachable from HEAD. Throws if the clone is shallow,
- *  because a shallow clone cannot see the previous tag and falling back to
- *  "all of history" would re-announce every change the plugin ever made. */
+/** The tag the previous release was cut from. Throws rather than falling back
+ *  to "all of history": a shallow clone or a tagless repo would otherwise
+ *  re-announce every change the plugin ever made as this release's news. */
 function lastTag() {
   if (git("rev-parse", "--is-shallow-repository") === "true") {
     throw new Error(
-      "shallow clone: cannot see the previous tag. Check out with fetch-depth: 0.",
+      "this is a shallow clone, so the previous release tag is not visible. " +
+        "Check out with fetch-depth: 0.",
     );
   }
-  return git("describe", "--tags", "--abbrev=0");
+  try {
+    return git("describe", "--tags", "--abbrev=0");
+  } catch {
+    throw new Error(
+      "no tag found to compare against. Release notes are written from the " +
+        "commits since the last tag, so there has to be one.",
+    );
+  }
 }
 
 function main() {

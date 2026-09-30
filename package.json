@@ -11,7 +11,10 @@
   "scripts": {
     "dev": "node esbuild.config.mjs",
     "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
-    "test": "vitest run"
+    "test": "vitest run",
+    "changelog": "node scripts/generate-changelog.mjs",
+    "changelog:dry": "node scripts/generate-changelog.mjs --dry-run",
+    "lint:commits": "node scripts/check-commits.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.20.0",

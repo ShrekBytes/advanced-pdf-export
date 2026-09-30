@@ -29,3 +29,19 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  # The release notes are written from commit subjects, so a subject the
+  # generator cannot read is a change users are never told about. Scoped to
+  # pull requests: history predating this check, and the direct web-UI pushes
+  # to main, are not in scope.
+  commits:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      # Full history so the base commit is present for the range below.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check commit messages
+        run: node scripts/check-commits.mjs "${{ github.event.pull_request.base.sha }}..HEAD"

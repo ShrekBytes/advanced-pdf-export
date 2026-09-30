@@ -222,6 +222,9 @@ All settings take effect after closing the settings panel.
 
 After an update, the plugin opens a window listing what changed in that version. The ten most recent releases are always available from the **What's new** button at the bottom of the settings tab.
 
+These notes are written from the commit messages in each release, so a
+contributor's `feat:` and `fix:` commits become the bullet points you read.
+
 ## License
 
 Open source under [GPL-3.0 License](LICENSE).
