@@ -1,5 +1,10 @@
 [
   {
+    "version": "4.7.2",
+    "date": "2026-09-30",
+    "changes": []
+  },
+  {
     "version": "4.7.1",
     "date": "2026-09-30",
     "changes": [
@@ -66,13 +71,6 @@
     "date": "2026-07-10",
     "changes": [
       "Added a customizable page number format."
-    ]
-  },
-  {
-    "version": "4.1.8",
-    "date": "2026-07-03",
-    "changes": [
-      "Reduced the delay before MathJax content is rendered."
     ]
   }
 ]
