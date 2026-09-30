@@ -14,26 +14,15 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { addEntry, buildChanges, MAX_ENTRIES } from "./changelog-entries.mjs";
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const CHANGELOG = join(ROOT, "src", "changelog.json");
-const MANIFEST = join(ROOT, "manifest.json");
-
-const git = (...args) =>
-  execFileSync("git", args, {
-    cwd: ROOT,
-    encoding: "utf8",
-    // Capture git's stderr rather than letting it print, so failures surface
-    // once, as a message from here.
-    stdio: ["ignore", "pipe", "pipe"],
-  }).trimEnd();
+const DEFAULT_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 /** The tag the previous release was cut from. Throws rather than falling back
  *  to "all of history": a shallow clone or a tagless repo would otherwise
  *  re-announce every change the plugin ever made as this release's news. */
-function lastTag() {
+function lastTag(git) {
   if (git("rev-parse", "--is-shallow-repository") === "true") {
     throw new Error(
       "this is a shallow clone, so the previous release tag is not visible. " +
@@ -50,49 +39,74 @@ function lastTag() {
   }
 }
 
-function main() {
-  const dryRun = process.argv.includes("--dry-run");
-  const version = JSON.parse(readFileSync(MANIFEST, "utf8")).version;
-  const existing = JSON.parse(readFileSync(CHANGELOG, "utf8"));
+/**
+ * Writes this release's entry into <root>/src/changelog.json.
+ *
+ * Takes the repository root rather than assuming the one it lives in, so a
+ * test can point it at a throwaway repo and exercise the git and file handling
+ * rather than only the string rewriting.
+ */
+export function generate({ root = DEFAULT_ROOT, dryRun = false, log = console.log } = {}) {
+  const git = (...args) =>
+    execFileSync("git", args, {
+      cwd: root,
+      encoding: "utf8",
+      // Capture git's stderr rather than letting it print, so failures surface
+      // once, as a message from here.
+      stdio: ["ignore", "pipe", "pipe"],
+    }).trimEnd();
 
-  const tag = lastTag();
+  const version = JSON.parse(readFileSync(join(root, "manifest.json"), "utf8")).version;
+  const existing = JSON.parse(readFileSync(join(root, "src", "changelog.json"), "utf8"));
+
+  const tag = lastTag(git);
   const subjects = git("log", `${tag}..HEAD`, "--no-merges", "--format=%s")
     .split("\n")
     .filter((line) => line.trim() !== "");
 
   const { changes, skipped } = buildChanges(subjects);
   const date = git("log", "-1", "--format=%cs");
-  const result = addEntry(existing, { version, date, changes });
+  const entry = { version, date, changes };
+  const result = addEntry(existing, entry);
 
-  console.log(`changelog: ${subjects.length} commit(s) since ${tag}`);
-  console.log(`changelog: ${changes.length} user-facing change(s), ${skipped.length} skipped`);
+  log(`changelog: ${subjects.length} commit(s) since ${tag}`);
+  log(`changelog: ${changes.length} user-facing change(s), ${skipped.length} skipped`);
   if (skipped.length > 0) {
     // Printed because a skipped subject is a change this release will not
     // mention. Most are chores by design; see changelog-entries.mjs for what
     // counts as user-facing.
-    console.log("changelog: not user-facing, and not written up:");
-    for (const subject of skipped) console.log(`  - ${subject}`);
+    log("changelog: not user-facing, and not written up:");
+    for (const subject of skipped) log(`  - ${subject}`);
   }
   for (const old of result.dropped) {
-    console.log(`changelog: dropped ${old}, over the ${MAX_ENTRIES}-entry cap`);
+    log(`changelog: dropped ${old}, over the ${MAX_ENTRIES}-entry cap`);
   }
 
   if (dryRun) {
-    console.log("changelog: --dry-run, not writing. This entry would be:");
-    console.log(JSON.stringify({ version, date, changes }, null, 2));
+    log("changelog: --dry-run, not writing. This entry would be:");
+    log(JSON.stringify(entry, null, 2));
   } else if (!result.added) {
-    console.log(`changelog: ${version} already has an entry, nothing to do.`);
+    log(`changelog: ${version} already has an entry, nothing to do.`);
   } else {
-    writeFileSync(CHANGELOG, `${JSON.stringify(result.entries, null, 2)}\n`);
-    console.log(`changelog: wrote ${version} to src/changelog.json`);
+    writeFileSync(
+      join(root, "src", "changelog.json"),
+      `${JSON.stringify(result.entries, null, 2)}\n`,
+    );
+    log(`changelog: wrote ${version} to src/changelog.json`);
   }
+
+  return { entry, result, skipped, tag };
 }
 
-try {
-  main();
-} catch (err) {
-  // A stack trace here means a CI misconfiguration, not a code bug. Say what
-  // went wrong in one line so the release log is readable.
-  console.error(`changelog: ${err instanceof Error ? err.message : String(err)}`);
-  process.exit(1);
+// Only run when invoked as a script, so importing this to test it does not
+// start writing files.
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  try {
+    generate({ dryRun: process.argv.includes("--dry-run") });
+  } catch (err) {
+    // A stack trace here means a CI misconfiguration, not a code bug. Say what
+    // went wrong in one line so the release log is readable.
+    console.error(`changelog: ${err instanceof Error ? err.message : String(err)}`);
+    process.exit(1);
+  }
 }

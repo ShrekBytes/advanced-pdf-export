@@ -31,17 +31,26 @@ jobs:
         run: npm run build
 
   # The release notes are written from commit subjects, so a subject the
-  # generator cannot read is a change users are never told about. Scoped to
-  # pull requests: history predating this check, and the direct web-UI pushes
-  # to main, are not in scope.
+  # generator cannot read is a change users are never told about. Runs on
+  # pull requests, where a failure can still be fixed before merging, and on
+  # pushes to main, where it cannot — the GitHub web editor commits straight to
+  # main, and those are exactly the subjects that go unread. On a push the
+  # check is a signal rather than a gate: the commit is already published, so
+  # this makes the problem visible instead of silent.
+  #
+  # Only the newly-pushed range is checked. History predating this job is out
+  # of scope and would fail on every run.
   commits:
-    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      # Full history so the base commit is present for the range below.
+      # Full history so both ends of the range below are present.
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Check commit messages
-        run: node scripts/check-commits.mjs "${{ github.event.pull_request.base.sha }}..HEAD"
+        env:
+          RANGE: ${{ github.event_name == 'pull_request'
+            && format('{0}..HEAD', github.event.pull_request.base.sha)
+            || format('{0}..{1}', github.event.before, github.sha) }}
+        run: node scripts/check-commits.mjs "$RANGE"

@@ -38,12 +38,20 @@ chore: bump version to 4.6.0                →  (left out — nothing to tell a
 `feat`, `fix`, `perf` and `revert` reach the notes. Everything else is
 internal and dropped, as are merge commits and the `Update main.js`-style
 subjects the GitHub web editor produces. A subject that is none of these is
-also dropped — `scripts/check-commits.mjs` fails the build on a pull request
-that introduces one, and the release log lists whatever was skipped so nothing
-disappears quietly.
+also dropped — `scripts/check-commits.mjs` runs on pull requests *and* on
+pushes to `main`, and the release log lists whatever was skipped so nothing
+disappears quietly. On a push the check is a signal, not a gate: the commit is
+already published, so it makes an unreadable subject visible rather than
+preventing it.
 
 `src/changelog.json` is generated. Edit `scripts/changelog-entries.mjs` to
 change how subjects are read or rewritten, not the JSON.
+
+Both scripts are covered by tests that build a throwaway git repository and
+run the real thing against it — `scripts/generate-changelog.test.ts` and
+`scripts/check-commits.test.ts`. If you change the tag handling, the cap or
+the dry-run behaviour, add a case there rather than only in
+`changelog-entries.test.ts`, which covers the string rewriting alone.
 
 ## Agent skills
 

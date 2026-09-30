@@ -28,9 +28,14 @@ const range = process.argv[2] ?? "HEAD";
 /** Subjects git itself produces, which the author didn't write. */
 const GIT_WRITTEN = /^(Merge |Revert ")/;
 
+/** GitHub sends an all-zero `before` for a branch's first push, which is not a
+ *  real revision. Check the whole history in that case rather than failing on
+ *  a ref that cannot exist. */
+const from = /^[0]{40}$/.test(range.split("..")[0] ?? "") ? [] : [range];
+
 let raw;
 try {
-  raw = execFileSync("git", ["log", range, "--no-merges", "--format=%H%x00%s"], {
+  raw = execFileSync("git", ["log", ...from, "--no-merges", "--format=%H%x00%s"], {
     encoding: "utf8",
     // Capture git's stderr instead of letting it print, so the only output is
     // the message below.
