@@ -92,6 +92,25 @@ describe("toChangeLine", () => {
       .toBe("Fixed latex math symbol missing.");
   });
 
+  it("strips a verb only when a noun phrase is left to take as its object", () => {
+    // Both of these are real subjects from 4.7.0 that read as "Fixed keep
+    // markdown table column alignment in headers." until the verb was listed.
+    expect(line("fix: keep markdown table column alignment in headers"))
+      .toBe("Fixed markdown table column alignment in headers.");
+    expect(line("fix: preserve preset customizations when switching presets"))
+      .toBe("Fixed preset customizations when switching presets.");
+  });
+
+  it("leaves a verb that heads a whole clause alone", () => {
+    // Stripping "make" would give "Fixed the commit check and the generator
+    // agree on what is readable", which is no more readable than what it
+    // replaces. The subject needs rewriting at commit time, not a bigger
+    // regex here — so the verb stays and the line stays honest about being
+    // mechanical.
+    expect(line("fix: make the commit check and the generator agree on what is readable"))
+      .toBe("Fixed make the commit check and the generator agree on what is readable.");
+  });
+
   it("keeps a subject that already reads as a noun phrase", () => {
     expect(line("feat: configurable table border color"))
       .toBe("Added configurable table border color.");

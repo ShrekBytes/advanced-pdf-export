@@ -33,10 +33,19 @@ export const KNOWN_TYPES = new Set([...Object.keys(USER_FACING), ...INTERNAL_TYP
  *
  *  This list is the only quality lever in an otherwise mechanical rewrite: a
  *  verb missing here shows up in the notes as "Added show the thing.". Add to
- *  it when a release reads badly. */
+ *  it when a release reads badly.
+ *
+ *  A verb only earns a place if stripping it leaves a noun phrase behind, since
+ *  that is what the new verb then takes as its object: "keep markdown table
+ *  column alignment" gives "Fixed markdown table column alignment". Stripping
+ *  one that heads a whole clause instead leaves the clause dangling — "make the
+ *  commit check and the generator agree on what is readable" gives "Fixed the
+ *  commit check and the generator agree on what is readable", no better than the
+ *  "Fixed make ..." it replaced. Such a subject cannot be fixed from here; it
+ *  needs rewriting at commit time. */
 const STRIP = {
   Added: /^(add|adds|added|introduce|introduces|introduced|implement|implements|implemented|support|supports|create|creates|created|allow|allows|allowed|new|show|shows|display|displays)\s+/i,
-  Fixed: /^(fix|fixes|fixed|correct|corrects|resolve|resolves|resolved|prevent|prevents|prevented|handle|handles|handled|avoid|avoids|avoided)\s+/i,
+  Fixed: /^(fix|fixes|fixed|correct|corrects|resolve|resolves|resolved|prevent|prevents|prevented|handle|handles|handled|avoid|avoids|avoided|keep|keeps|kept|preserve|preserves|preserved)\s+/i,
   Improved: /^(improve|improves|improved|optimi[sz]e|optimi[sz]es|optimi[zed]ed|reduce|reduces|reduced|speed up|make faster)\s+/i,
   Reverted: /^(revert|reverts|reverted)\s+/i,
 };
