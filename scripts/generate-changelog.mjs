@@ -15,7 +15,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join, resolve } from "node:path";
-import { addEntry, buildChanges, MAX_ENTRIES } from "./changelog-entries.mjs";
+import { addEntry, buildChanges, toReleaseBody, MAX_ENTRIES } from "./changelog-entries.mjs";
 
 const DEFAULT_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -40,13 +40,34 @@ function lastTag(git) {
 }
 
 /**
- * Writes this release's entry into <root>/src/changelog.json.
+ * The repository's web root, for the compare link on a release body.
+ *
+ * GitHub Actions sets both of these for every step, so the release workflow
+ * needs no plumbing to get one. A local run has neither, and the body is then
+ * written without a compare link rather than with a broken one.
+ */
+function compareBase(env) {
+  const { GITHUB_SERVER_URL: server, GITHUB_REPOSITORY: repository } = env;
+  return server && repository ? `${server}/${repository}` : undefined;
+}
+
+/**
+ * Writes this release's entry into <root>/src/changelog.json, and optionally the
+ * body of the GitHub release into <root>/notesFile.
  *
  * Takes the repository root rather than assuming the one it lives in, so a
  * test can point it at a throwaway repo and exercise the git and file handling
- * rather than only the string rewriting.
+ * rather than only the string rewriting. `env` is a parameter for the same
+ * reason: the compare link depends on it, and a test should not have to fake
+ * the process environment to check that.
  */
-export function generate({ root = DEFAULT_ROOT, dryRun = false, log = console.log } = {}) {
+export function generate({
+  root = DEFAULT_ROOT,
+  dryRun = false,
+  log = console.log,
+  notesFile,
+  env = process.env,
+} = {}) {
   const git = (...args) =>
     execFileSync("git", args, {
       cwd: root,
@@ -94,6 +115,23 @@ export function generate({ root = DEFAULT_ROOT, dryRun = false, log = console.lo
     log(`changelog: wrote ${version} to src/changelog.json`);
   }
 
+  // Written whether or not the entry above was new, so re-running a release
+  // that failed after tagging still produces the right body. Sourced from the
+  // stored entry rather than the one just computed, for the same reason: the
+  // tag has already moved by then, so the commit range comes back empty and
+  // the computed entry would claim the release changed nothing.
+  if (notesFile) {
+    const stored = result.entries.find((e) => e.version === version);
+    const body = toReleaseBody(stored, { previous: tag, compareBase: compareBase(env) });
+    if (dryRun) {
+      log(`changelog: --dry-run, not writing. The ${version} release body would be:`);
+      log(body);
+    } else {
+      writeFileSync(join(root, notesFile), body);
+      log(`changelog: wrote the ${version} release body to ${notesFile}`);
+    }
+  }
+
   return { entry, result, skipped, unreadable, tag };
 }
 
@@ -101,7 +139,12 @@ export function generate({ root = DEFAULT_ROOT, dryRun = false, log = console.lo
 // start writing files.
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
-    generate({ dryRun: process.argv.includes("--dry-run") });
+    // A bare --notes-file with no path would otherwise look the same as no flag
+    // at all, and the release would ship with an empty body and no complaint.
+    const flag = process.argv.indexOf("--notes-file");
+    const notesFile = flag === -1 ? undefined : process.argv[flag + 1];
+    if (flag !== -1 && !notesFile) throw new Error("--notes-file needs a path to write to.");
+    generate({ dryRun: process.argv.includes("--dry-run"), notesFile });
   } catch (err) {
     // A stack trace here means a CI misconfiguration, not a code bug. Say what
     // went wrong in one line so the release log is readable.

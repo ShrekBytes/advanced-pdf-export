@@ -31,6 +31,13 @@ export interface AddEntryResult {
   dropped: string[];
 }
 
+export interface ReleaseBodyOptions {
+  /** Tag this release follows, for the compare link. */
+  previous?: string;
+  /** Repository web root, e.g. "https://github.com/owner/repo". */
+  compareBase?: string;
+}
+
 /** Every conventional type accepted, user-facing and internal alike. */
 export declare const KNOWN_TYPES: Set<string>;
 
@@ -41,6 +48,10 @@ export declare function classifySubject(subject: string): Classification;
 export declare function parseSubject(subject: string): ParsedCommit | null;
 export declare function toChangeLine(commit: ParsedCommit): string;
 export declare function buildChanges(subjects: string[]): BuiltChanges;
+export declare function toReleaseBody(
+  entry: ReleaseEntry,
+  options?: ReleaseBodyOptions,
+): string;
 export declare function addEntry(
   entries: ReleaseEntry[],
   entry: ReleaseEntry,

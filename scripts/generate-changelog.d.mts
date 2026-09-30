@@ -7,6 +7,13 @@ export interface GenerateOptions {
   dryRun?: boolean;
   /** Where the human-readable report goes. Defaults to the console. */
   log?: (message: string) => void;
+  /**
+   * Path under the root to write the GitHub release body to. Omitted unless
+   * asked for, so a local run leaves no file behind.
+   */
+  notesFile?: string;
+  /** Source of GITHUB_SERVER_URL and GITHUB_REPOSITORY, for the compare link. */
+  env?: Record<string, string | undefined>;
 }
 
 export interface GenerateResult {

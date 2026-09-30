@@ -50,10 +50,11 @@ jobs:
 
       # Writes this release's entry into src/changelog.json from the commits
       # since the last tag, so the notes in the bundle match the release they
-      # ship with. Must run before the build.
+      # ship with, and the GitHub release body from the same entry, so the two
+      # cannot drift and neither is written by hand. Must run before the build.
       - name: Generate release notes
         if: steps.version.outputs.changed == 'true'
-        run: node scripts/generate-changelog.mjs
+        run: node scripts/generate-changelog.mjs --notes-file release-notes.md
 
       - name: Build plugin
         if: steps.version.outputs.changed == 'true'
@@ -84,7 +85,7 @@ jobs:
           VERSION="${{ steps.version.outputs.new }}"
           gh release create "$VERSION" \
             --title "$VERSION" \
-            --generate-notes \
+            --notes-file release-notes.md \
             main.js \
             manifest.json \
             styles.css

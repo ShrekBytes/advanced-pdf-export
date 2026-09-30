@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, existsSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { generate } from "./generate-changelog.mjs";
@@ -44,6 +44,10 @@ const commit = (root: string, subject: string) => {
 
 const readEntries = (root: string): ReleaseEntry[] =>
   JSON.parse(readFileSync(join(root, "src", "changelog.json"), "utf8"));
+
+/** What GitHub Actions puts in the environment of every step, which is where
+ *  the compare link on a release body comes from. */
+const actionsEnv = { GITHUB_SERVER_URL: "https://github.com", GITHUB_REPOSITORY: "o/r" };
 
 describe("generate", () => {
   let root: string;
@@ -193,6 +197,81 @@ describe("generate", () => {
 
     expect(readFileSync(join(root, "src", "changelog.json"), "utf8")).toBe(before);
     expect(entry.version).toBe("1.1.0");
+  });
+
+  it("writes the release body only when asked for one", () => {
+    // A local `changelog:dry` must not leave a file lying around.
+    bump(root, "1.1.0");
+    commit(root, "feat: add a table border color");
+
+    generate({ root, log: quiet });
+
+    expect(existsSync(join(root, "release-notes.md"))).toBe(false);
+  });
+
+  it("writes a release body from the same entry the plugin shows", () => {
+    bump(root, "1.1.0");
+    commit(root, "feat: add a table border color");
+    commit(root, "fix: keep the header border from doubling");
+
+    generate({ root, log: quiet, notesFile: "release-notes.md", env: actionsEnv });
+
+    // Same sentences as the stored entry, so the release page and the in-app
+    // notes cannot say different things. Newest first, as git log returns them.
+    expect(readFileSync(join(root, "release-notes.md"), "utf8")).toBe(
+      "- Fixed the header border from doubling.\n" +
+        "- Added a table border color.\n\n" +
+        "**Full Changelog**: https://github.com/o/r/compare/1.0.0...1.1.0\n",
+    );
+  });
+
+  it("leaves the compare link out when it is not running under Actions", () => {
+    bump(root, "1.1.0");
+    commit(root, "feat: add a table border color");
+
+    generate({ root, log: quiet, notesFile: "release-notes.md", env: {} });
+
+    expect(readFileSync(join(root, "release-notes.md"), "utf8")).toBe(
+      "- Added a table border color.\n",
+    );
+  });
+
+  it("still writes the release body when re-run after the tag moved", () => {
+    // The failure this guards: a release that failed after tagging and was
+    // re-run would measure from its own tag, see no commits, and publish a
+    // release claiming it changed nothing.
+    bump(root, "1.1.0");
+    commit(root, "feat: add a table border color");
+    generate({ root, log: quiet, notesFile: "release-notes.md", env: actionsEnv });
+    git(root, "tag", "1.1.0");
+
+    rmSync(join(root, "release-notes.md"));
+    generate({ root, log: quiet, notesFile: "release-notes.md", env: actionsEnv });
+
+    expect(readFileSync(join(root, "release-notes.md"), "utf8")).toContain(
+      "- Added a table border color.",
+    );
+  });
+
+  it("does not write a release body in dry-run mode", () => {
+    bump(root, "1.1.0");
+    commit(root, "feat: add a table border color");
+
+    generate({ root, dryRun: true, log: quiet, notesFile: "release-notes.md", env: actionsEnv });
+
+    expect(existsSync(join(root, "release-notes.md"))).toBe(false);
+  });
+
+  it("reports a release with no user-facing changes rather than shipping a blank page", () => {
+    bump(root, "1.1.0");
+    commit(root, "chore: bump version to 1.1.0");
+
+    generate({ root, log: quiet, notesFile: "release-notes.md", env: actionsEnv });
+
+    expect(readFileSync(join(root, "release-notes.md"), "utf8")).toBe(
+      "_This release has no user-facing changes._\n\n" +
+        "**Full Changelog**: https://github.com/o/r/compare/1.0.0...1.1.0\n",
+    );
   });
 
   it("refuses to guess when the previous tag is not visible", () => {

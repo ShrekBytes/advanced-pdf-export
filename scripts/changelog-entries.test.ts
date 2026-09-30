@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseSubject, toChangeLine, buildChanges, addEntry, MAX_ENTRIES } from "./changelog-entries.mjs";
+import { parseSubject, toChangeLine, toReleaseBody, buildChanges, addEntry, MAX_ENTRIES } from "./changelog-entries.mjs";
 import type { ReleaseEntry } from "../src/changelog";
 
 // Every subject below is a real one from this repository's history, so the
@@ -187,6 +187,56 @@ describe("buildChanges", () => {
       "Fixed use createDiv instead of createEl.",
       "Added ligature off by default.",
     ]);
+  });
+});
+
+describe("toReleaseBody", () => {
+  const entry = (changes: string[]): ReleaseEntry => ({
+    version: "4.7.0",
+    date: "2026-09-30",
+    changes,
+  });
+
+  it("lists the changes as bullets", () => {
+    expect(toReleaseBody(entry(["Added a table border color.", "Fixed a crash."]))).toBe(
+      "- Added a table border color.\n- Fixed a crash.\n",
+    );
+  });
+
+  it("says so plainly when there is nothing to report", () => {
+    // An empty bullet list renders as a blank release page, which is the exact
+    // failure this body exists to replace.
+    expect(toReleaseBody(entry([]))).toBe("_This release has no user-facing changes._\n");
+  });
+
+  it("adds the compare link when it knows the previous tag and the repository", () => {
+    expect(
+      toReleaseBody(entry(["Added a thing."]), {
+        previous: "4.6.0",
+        compareBase: "https://github.com/ShrekBytes/advanced-pdf-export",
+      }),
+    ).toBe(
+      "- Added a thing.\n\n" +
+        "**Full Changelog**: https://github.com/ShrekBytes/advanced-pdf-export/compare/4.6.0...4.7.0\n",
+    );
+  });
+
+  it("leaves the compare link out rather than guessing it", () => {
+    // A local run has no GITHUB_REPOSITORY, and half a URL is worse than none.
+    expect(toReleaseBody(entry(["Added a thing."]), { previous: "4.6.0" })).toBe(
+      "- Added a thing.\n",
+    );
+  });
+
+  it("does not compare a version with itself", () => {
+    // A re-run after the tag was created measures from that tag, so previous
+    // can be this same version.
+    expect(
+      toReleaseBody(entry(["Added a thing."]), {
+        previous: "4.7.0",
+        compareBase: "https://github.com/o/r",
+      }),
+    ).toBe("- Added a thing.\n");
   });
 });
 

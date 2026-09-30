@@ -154,6 +154,35 @@ export function buildChanges(subjects) {
 }
 
 /**
+ * Renders one stored entry as the body of a GitHub release.
+ *
+ * The same sentences the plugin shows after an update, from the same entry, so
+ * the release page and the in-app notes cannot drift and neither has to be
+ * written by hand.
+ *
+ * GitHub's own `--generate-notes` is deliberately not used: it summarises
+ * merged pull requests, so a release whose commits were pushed straight to main
+ * gets a body containing nothing but a compare link.
+ *
+ * `previous` and `compareBase` are the tag this release follows and the
+ * repository's web root. Both are optional because a body is worth having
+ * without a compare link, and a local run has no compareBase.
+ */
+export function toReleaseBody(entry, { previous, compareBase } = {}) {
+  const lines =
+    entry.changes.length > 0
+      ? entry.changes.map((change) => `- ${change}`)
+      : ["_This release has no user-facing changes._"];
+  // A re-run of a release that failed after tagging measures from its own tag,
+  // so previous can be this same version; a link comparing it to itself is
+  // noise, and no link is better.
+  if (previous && compareBase && previous !== entry.version) {
+    lines.push("", `**Full Changelog**: ${compareBase}/compare/${previous}...${entry.version}`);
+  }
+  return `${lines.join("\n")}\n`;
+}
+
+/**
  * Puts a new entry at the top of the history and drops whatever falls past
  * the cap. Refuses to add a version that is already there, so re-running after
  * a failed release cannot produce a duplicate.

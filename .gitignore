@@ -7,6 +7,9 @@ node_modules/
 # Logs
 *.log
 
+# GitHub release body, written by the release workflow
+release-notes.md
+
 # OS files
 .DS_Store
 Thumbs.db
