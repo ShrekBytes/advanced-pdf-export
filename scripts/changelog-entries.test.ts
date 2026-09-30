@@ -123,28 +123,38 @@ describe("toChangeLine", () => {
 });
 
 describe("buildChanges", () => {
-  it("reports what it left out", () => {
-    // The whole reason this returns `skipped`: a commit that is neither noise
-    // nor readable is a change the release notes will not mention, and the
-    // release log has to say so out loud.
-    const { changes, skipped } = buildChanges([
+  it("separates what it left out from what it could not read", () => {
+    // The distinction the whole design turns on. `chore:` and `Update main.js`
+    // are deliberately not in the notes and nothing is wrong. "optimize
+    // mathjax rendering delay" is a real change that will reach no user
+    // because its subject doesn't say what it did — the one worth reporting.
+    const { changes, skipped, unreadable } = buildChanges([
       "feat: add configurable table border color",
       "chore: bump version to 4.6.0",
       "Update main.js",
       "optimize mathjax rendering delay",
     ]);
     expect(changes).toEqual(["Added configurable table border color."]);
-    expect(skipped).toEqual([
-      "chore: bump version to 4.6.0",
-      "Update main.js",
-      "optimize mathjax rendering delay",
+    expect(skipped).toEqual(["chore: bump version to 4.6.0", "Update main.js"]);
+    expect(unreadable).toEqual([
+      { subject: "optimize mathjax rendering delay", reason: "no conventional prefix" },
     ]);
   });
 
-  it("produces an empty list rather than failing when nothing is user-facing", () => {
-    const { changes, skipped } = buildChanges(["chore: bump version to 4.6.0", "Update main.js"]);
+  it("treats a bad type as unreadable rather than internal", () => {
+    const { skipped, unreadable } = buildChanges(["wibble: something"]);
+    expect(skipped).toEqual([]);
+    expect(unreadable[0].reason).toContain("unknown type");
+  });
+
+  it("produces empty lists rather than failing when nothing is user-facing", () => {
+    const { changes, skipped, unreadable } = buildChanges([
+      "chore: bump version to 4.6.0",
+      "Update main.js",
+    ]);
     expect(changes).toEqual([]);
     expect(skipped).toHaveLength(2);
+    expect(unreadable).toEqual([]);
   });
 
   it("keeps commits in the order they were given", () => {

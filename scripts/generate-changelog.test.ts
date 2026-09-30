@@ -156,14 +156,32 @@ describe("generate", () => {
     expect(readEntries(root)[0].changes).toEqual(['Added a "quoted" thing, with a comma.']);
   });
 
-  it("reports the subjects it left out", () => {
+  it("reports the subjects it could not read", () => {
     bump(root, "1.1.0");
     commit(root, "feat: add a table border color");
     commit(root, "optimize mathjax rendering delay");
 
-    const { skipped } = generate({ root, log: quiet });
+    const { skipped, unreadable } = generate({ root, log: quiet });
 
-    expect(skipped).toEqual(["optimize mathjax rendering delay"]);
+    // "optimize mathjax rendering delay" is a real change to the plugin that
+    // will reach no user, so it is reported rather than quietly dropped.
+    expect(skipped).toEqual([]);
+    expect(unreadable).toEqual([
+      { subject: "optimize mathjax rendering delay", reason: "no conventional prefix" },
+    ]);
+  });
+
+  it("keeps internal commits out of both lists", () => {
+    bump(root, "1.1.0");
+    commit(root, "feat: add a table border color");
+    commit(root, "chore: bump version to 1.1.0");
+    commit(root, "Update main.ts");
+
+    const { skipped, unreadable } = generate({ root, log: quiet });
+
+    // Newest first, the order git log returns them in.
+    expect(skipped).toEqual(["Update main.ts", "chore: bump version to 1.1.0"]);
+    expect(unreadable).toEqual([]);
   });
 
   it("does not touch the file in dry-run mode", () => {

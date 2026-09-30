@@ -12,8 +12,10 @@ export interface GenerateOptions {
 export interface GenerateResult {
   entry: ReleaseEntry;
   result: AddEntryResult;
-  /** Subjects left out of the notes. */
+  /** Subjects deliberately kept out of the notes. */
   skipped: string[];
+  /** Subjects that could not be read, so the change is unannounced. */
+  unreadable: { subject: string; reason: string }[];
   /** The tag the range was measured from. */
   tag: string;
 }

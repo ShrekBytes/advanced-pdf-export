@@ -21,7 +21,11 @@ const USER_FACING = {
 
 /** Prefixes with no user-visible effect. Dropped silently — the overwhelming
  *  majority of them are `chore: bump version` and similar. */
-const INTERNAL = new Set(["chore", "refactor", "docs", "test", "build", "ci", "style"]);
+const INTERNAL_TYPES = new Set(["chore", "refactor", "docs", "test", "build", "ci", "style"]);
+
+/** Every prefix either of the two sets accepts. A subject using anything else
+ *  is a typo, not a choice, and is worth reporting. */
+export const KNOWN_TYPES = new Set([...Object.keys(USER_FACING), ...INTERNAL_TYPES]);
 
 /** Leading infinitives stripped before the verb is prepended, so
  *  "feat: add table border color" reads as "Added table border color." rather
@@ -43,25 +47,57 @@ const CONVENTIONAL = /^(?<type>[a-z]+)(?:\((?<scope>[^)]*)\))?(?<breaking>!)?: (
  *  for the runtime; a test asserts the two agree. */
 export const MAX_ENTRIES = 10;
 
-/** Web-UI edits and dependency chores that aren't conventional commits but are
- *  pure noise. Matched on the whole subject. */
+/** Web-UI edits the GitHub file editor produces, which carry no information
+ *  about intent. Internal rather than malformed: the editor chose the wording,
+ *  so no amount of care from a contributor would have avoided it. */
 const NOISE = /^(update|updated|add|remove) (main\.(js|ts)|styles\.css|manifest\.json|package(-lock)?\.json|README\.md|\.gitignore)$/i;
 
+/** Lines git itself writes. */
+const GIT_WRITTEN = /^(Merge (pull request|branch|commit)|Revert ")/;
+
 /**
- * Parses a conventional commit subject.
- * Returns null for anything that isn't one, including merge commits and the
- * noise subjects above.
+ * Classifies a commit subject three ways, because two different questions get
+ * asked about the same text and collapsing them to a yes/no is how the
+ * generator and the commit check end up disagreeing:
+ *
+ *   "user-facing" — belongs in the release notes
+ *   "internal"    — deliberately not in the notes, and nothing to report
+ *   "unreadable"  — not in the notes, and someone should know why
+ *
+ * Only "unreadable" is a problem. "internal" covers both `chore: bump version`
+ * and the `Update main.ts` the web editor writes.
+ */
+export function classifySubject(subject) {
+  const line = subject.trim();
+  if (line === "") return { kind: "unreadable", reason: "empty subject" };
+  if (NOISE.test(line)) return { kind: "internal", reason: "a web-editor file update" };
+  if (GIT_WRITTEN.test(line)) return { kind: "internal", reason: "written by git" };
+
+  const match = CONVENTIONAL.exec(line);
+  if (!match?.groups) {
+    return { kind: "unreadable", reason: "no conventional prefix" };
+  }
+  const { type, scope, breaking, description } = match.groups;
+  if (!KNOWN_TYPES.has(type)) {
+    return { kind: "unreadable", reason: `unknown type "${type}"` };
+  }
+  if (INTERNAL_TYPES.has(type)) {
+    return { kind: "internal", reason: `\`${type}:\` has no user-visible effect` };
+  }
+  return {
+    kind: "user-facing",
+    commit: { type, scope: scope ?? "", breaking: Boolean(breaking), description },
+  };
+}
+
+/**
+ * Parses a conventional commit subject into the parts a release-note line is
+ * built from, or null for anything that should not be written up — whether
+ * because it is internal or because it cannot be read.
  */
 export function parseSubject(subject) {
-  const line = subject.trim();
-  if (line === "" || NOISE.test(line)) return null;
-  if (/^Merge (pull request|branch|commit)/i.test(line)) return null;
-  const match = CONVENTIONAL.exec(line);
-  if (!match?.groups) return null;
-  const { type, scope, breaking, description } = match.groups;
-  if (INTERNAL.has(type)) return null;
-  if (!USER_FACING[type]) return null;
-  return { type, scope: scope ?? "", breaking: Boolean(breaking), description };
+  const result = classifySubject(subject);
+  return result.kind === "user-facing" ? result.commit : null;
 }
 
 /** Rewrites a parsed commit into one sentence. A `!` marker becomes a
@@ -85,18 +121,27 @@ export function toChangeLine(commit) {
 
 /**
  * Builds the change lines for a release from a list of commit subjects.
- * Returns the lines plus every subject that was left out, so the caller can
- * print them — a dropped subject is a change nobody will be told about.
+ *
+ * Returns the lines, plus the subjects left out split by whether anything
+ * should be done about them: `skipped` is the quiet majority (`chore:`, merge
+ * commits, web-editor updates) and `unreadable` is a change that will reach no
+ * user because nobody could read how to describe it.
  */
 export function buildChanges(subjects) {
   const changes = [];
   const skipped = [];
+  const unreadable = [];
   for (const subject of subjects) {
-    const commit = parseSubject(subject);
-    if (commit) changes.push(toChangeLine(commit));
-    else skipped.push(subject);
+    const result = classifySubject(subject);
+    if (result.kind === "user-facing") {
+      changes.push(toChangeLine(result.commit));
+    } else if (result.kind === "unreadable") {
+      unreadable.push({ subject, reason: result.reason });
+    } else {
+      skipped.push(subject);
+    }
   }
-  return { changes, skipped };
+  return { changes, skipped, unreadable };
 }
 
 /**

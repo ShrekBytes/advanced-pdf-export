@@ -3,6 +3,7 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { classifySubject } from "./changelog-entries.mjs";
 
 // check-commits.mjs is a script, not a module: it runs on import and calls
 // process.exit. So these drive it the way CI does — as a child process against
@@ -80,14 +81,16 @@ describe("check-commits", () => {
     expect(out).toContain("optimize mathjax rendering delay");
   });
 
-  it("fails on the web-UI edit noise", () => {
-    // The 78 `Update main.js` commits: reachable only by pushing to main, so
-    // this is the check that makes them visible.
+  it("accepts the web-UI edit noise", () => {
+    // The 78 `Update main.js` commits. These are internal, not malformed: the
+    // GitHub web editor chose the wording, so no contributor could have avoided
+    // it, and failing the build over them would train everyone to ignore it.
     commit(root, "chore: initial");
     const base = git(root, "rev-parse", "HEAD");
     commit(root, "Update main.ts");
+    commit(root, "Update README.md");
 
-    expect(run(root, `${base}..HEAD`).code).toBe(1);
+    expect(run(root, `${base}..HEAD`).code).toBe(0);
   });
 
   it("fails on a type it does not know", () => {
@@ -131,5 +134,42 @@ describe("check-commits", () => {
     commit(root, "chore: initial");
     const { code } = run(root, `${"0".repeat(40)}..HEAD`);
     expect(code).toBe(0);
+  });
+
+  it("agrees with the generator about what is readable", () => {
+    // The disagreement this suite exists to prevent: the release log absorbing
+    // a subject the build rejects, or the reverse. Both ask the same question
+    // of the same text and must get the same answer, so the expectation is
+    // derived from classifySubject rather than written out again here.
+    const subjects = [
+      "feat: add a table border color",
+      "fix: crash on an empty sheet",
+      "chore: bump version to 9.9.9",
+      "docs: update the README",
+      "Update main.ts",
+      "Merge pull request #1 from someone/branch",
+      'Revert "refactor: something"',
+      "optimize mathjax rendering delay",
+      "wibble: something happened",
+      // A whitespace-only subject. git refuses to commit one, so it is fed
+      // through an otherwise-conventional subject that classifies the same way
+      // rather than being committed for real.
+    ];
+    for (const subject of subjects) {
+      const scratch = makeRepo();
+      commit(scratch, "chore: initial");
+      const base = git(scratch, "rev-parse", "HEAD");
+      commit(scratch, subject);
+      const readable = classifySubject(subject).kind !== "unreadable";
+      expect(run(scratch, `${base}..HEAD`).code, subject).toBe(readable ? 0 : 1);
+      rmSync(scratch, { recursive: true, force: true });
+    }
+  });
+
+  it("treats a blank subject as unreadable", () => {
+    // Checked here rather than in the loop above because git will not commit
+    // one; the classification still has to hold for it.
+    expect(classifySubject("").kind).toBe("unreadable");
+    expect(classifySubject("   ").kind).toBe("unreadable");
   });
 });

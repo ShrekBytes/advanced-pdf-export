@@ -37,15 +37,28 @@ chore: bump version to 4.6.0                →  (left out — nothing to tell a
 
 `feat`, `fix`, `perf` and `revert` reach the notes. Everything else is
 internal and dropped, as are merge commits and the `Update main.js`-style
-subjects the GitHub web editor produces. A subject that is none of these is
-also dropped — `scripts/check-commits.mjs` runs on pull requests *and* on
-pushes to `main`, and the release log lists whatever was skipped so nothing
-disappears quietly. On a push the check is a signal, not a gate: the commit is
-already published, so it makes an unreadable subject visible rather than
-preventing it.
+subjects the GitHub web editor produces.
+
+`classifySubject()` in `scripts/changelog-entries.mjs` is the single answer to
+"what is this subject?", and both the generator and `check-commits.mjs` use it.
+It sorts a subject three ways: **user-facing** (goes in the notes), **internal**
+(deliberately not in the notes, and nothing to report — a `chore:`, a merge, a
+web-editor file update), and **unreadable** (not in the notes, and someone
+should know). Only the last one fails the build, and the release log lists
+those separately as changes that will go unannounced. Adding a case to one tool
+without the other is how they drift apart; add it to `classifySubject`.
+
+`scripts/check-commits.mjs` runs on pull requests *and* on pushes to `main`. On
+a push the check is a signal, not a gate: the commit is already published, so it
+makes an unreadable subject visible rather than preventing it. Only the
+newly-pushed range is checked, so pre-existing history cannot fail it.
 
 `src/changelog.json` is generated. Edit `scripts/changelog-entries.mjs` to
 change how subjects are read or rewritten, not the JSON.
+
+The `.d.mts` files beside the scripts declare their types for `tsc`;
+`tsconfig.json` includes them so they are actually checked. Keep them in step
+with the `.mjs` — a stale declaration is not caught by anything else.
 
 Both scripts are covered by tests that build a throwaway git repository and
 run the real thing against it — `scripts/generate-changelog.test.ts` and

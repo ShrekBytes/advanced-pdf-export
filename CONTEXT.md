@@ -41,5 +41,5 @@ first. Shown for the version you updated to after an update, and for the ten
 most recent from Settings.
 _Avoid_: update notes, what's new
 
-The file holding them is `changelog.ts`, and the window is
+The data lives in `src/changelog.json` and the window is
 `ReleaseNotesModal` — implementation names, not domain language.

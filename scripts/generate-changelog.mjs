@@ -64,19 +64,18 @@ export function generate({ root = DEFAULT_ROOT, dryRun = false, log = console.lo
     .split("\n")
     .filter((line) => line.trim() !== "");
 
-  const { changes, skipped } = buildChanges(subjects);
+  const { changes, skipped, unreadable } = buildChanges(subjects);
   const date = git("log", "-1", "--format=%cs");
   const entry = { version, date, changes };
   const result = addEntry(existing, entry);
 
   log(`changelog: ${subjects.length} commit(s) since ${tag}`);
-  log(`changelog: ${changes.length} user-facing change(s), ${skipped.length} skipped`);
-  if (skipped.length > 0) {
-    // Printed because a skipped subject is a change this release will not
-    // mention. Most are chores by design; see changelog-entries.mjs for what
-    // counts as user-facing.
-    log("changelog: not user-facing, and not written up:");
-    for (const subject of skipped) log(`  - ${subject}`);
+  log(`changelog: ${changes.length} user-facing, ${skipped.length} internal, ${unreadable.length} unreadable`);
+  if (unreadable.length > 0) {
+    // The ones that matter: a real change that will reach no user because its
+    // subject doesn't say what it did.
+    log("changelog: NOT written up, and not readable — these changes are unannounced:");
+    for (const { subject, reason } of unreadable) log(`  - ${subject}  (${reason})`);
   }
   for (const old of result.dropped) {
     log(`changelog: dropped ${old}, over the ${MAX_ENTRIES}-entry cap`);
@@ -95,7 +94,7 @@ export function generate({ root = DEFAULT_ROOT, dryRun = false, log = console.lo
     log(`changelog: wrote ${version} to src/changelog.json`);
   }
 
-  return { entry, result, skipped, tag };
+  return { entry, result, skipped, unreadable, tag };
 }
 
 // Only run when invoked as a script, so importing this to test it does not

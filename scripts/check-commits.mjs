@@ -1,32 +1,23 @@
 #!/usr/bin/env node
 // ─────────────────────────────────────────────────────────────────────────────
-// Fails when a commit subject in the given range isn't a conventional commit.
-// The generator can only write up what it can read, so an unreadable subject is
-// a change that silently won't appear in the release notes — this is what
-// stops that from happening on merged pull requests.
+// Fails when a commit subject in the given range cannot be read.
 //
-// Run against a PR's commit range, not the whole branch: history predating
-// this check, and direct web-UI pushes to main, are out of scope.
+// The release notes are written from commit subjects, so a subject nobody can
+// turn into a sentence is a change that reaches no user. This is the check that
+// makes that visible — on a pull request, where it can still be fixed before
+// merging, and on a push to main, where it cannot and is only a signal.
+//
+// It shares classifySubject() with the generator rather than keeping its own
+// patterns, because the two asking "is this subject readable?" differently is
+// how `Update main.js` ends up absorbed by one tool and rejected by the other.
 //
 // Usage: node scripts/check-commits.mjs [<base>..<head>]
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { execFileSync } from "node:child_process";
-import { parseSubject } from "./changelog-entries.mjs";
-
-/** Every conventional type, including the internal ones the generator drops.
- *  A `chore:` commit is still a well-formed commit. */
-const KNOWN = new Set([
-  "feat", "fix", "perf", "refactor", "revert",
-  "chore", "docs", "test", "build", "ci", "style",
-]);
-
-const SHAPE = /^(?<type>[a-z]+)(?:\((?<scope>[^)]*)\))?(?<breaking>!)?: .+$/;
+import { classifySubject, KNOWN_TYPES } from "./changelog-entries.mjs";
 
 const range = process.argv[2] ?? "HEAD";
-
-/** Subjects git itself produces, which the author didn't write. */
-const GIT_WRITTEN = /^(Merge |Revert ")/;
 
 /** GitHub sends an all-zero `before` for a branch's first push, which is not a
  *  real revision. Check the whole history in that case rather than failing on
@@ -57,31 +48,34 @@ const commits = raw
     return { sha, subject };
   });
 
+// Only "unreadable" fails. "internal" is deliberate — a `chore:` commit, a
+// merge, or a file update written by the GitHub web editor are all correctly
+// kept out of the notes, and none of them is anybody's mistake.
 const failures = [];
 for (const { sha, subject } of commits) {
-  if (GIT_WRITTEN.test(subject)) continue;
-  const match = SHAPE.exec(subject);
-  if (!match?.groups) {
-    failures.push({ sha, subject, why: "no conventional prefix" });
-  } else if (!KNOWN.has(match.groups.type)) {
-    failures.push({ sha, subject, why: `unknown type "${match.groups.type}"` });
+  const result = classifySubject(subject);
+  if (result.kind === "unreadable") {
+    failures.push({ sha, subject, why: result.reason });
   }
 }
 
 if (failures.length === 0) {
-  console.log(`commits: all ${commits.length} subject(s) in ${range} are conventional.`);
+  console.log(`commits: all ${commits.length} subject(s) in ${range} are readable.`);
 } else {
-  console.error(`commits: ${failures.length} of ${commits.length} subject(s) in ${range} are not conventional:\n`);
+  console.error(
+    `commits: ${failures.length} of ${commits.length} subject(s) in ${range} cannot be read:\n`,
+  );
   for (const { sha, subject, why } of failures) {
     console.error(`  ${sha.slice(0, 8)}  ${why}`);
     console.error(`    ${subject}`);
   }
   console.error(
     "\nExpected: <type>(<optional scope>): <description>\n" +
-      `Types: ${[...KNOWN].join(", ")}\n` +
-      "\nThe release notes are written from these subjects — a commit that\n" +
-      "can't be read here won't be told to users. `chore:`, `refactor:` and\n" +
-      "`docs:` are accepted but intentionally left out of the notes.",
+      `Types: ${[...KNOWN_TYPES].join(", ")}\n` +
+      "\nThe release notes are written from these subjects, so a commit that\n" +
+      "cannot be read here will not be told to users. Every listed type is\n" +
+      "accepted; `feat`, `fix`, `perf` and `revert` are the ones that reach the\n" +
+      "notes, and the rest are deliberately left out.",
   );
   process.exit(1);
 }
