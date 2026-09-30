@@ -108,6 +108,13 @@ var Pd=Object.create;var Qo=Object.defineProperty;var Cd=Object.getOwnPropertyDe
     font-size: 0.9em;
   }
   .mpdf-doc td { padding: 5px 10px; border: 0.5px solid ${e.tableBorderColor}33; vertical-align: top; }
+  /* Markdown column alignment (:--:) arrives as an align attribute on th/td \u2014 a
+     presentational hint, which the th rule above outranks, so headers lost their
+     alignment. start/end mirror the attribute in RTL, as Obsidian's own table CSS
+     does, keeping header and body cells on the same edge in either direction. */
+  .mpdf-doc th[align="left"], .mpdf-doc td[align="left"] { text-align: start; }
+  .mpdf-doc th[align="center"], .mpdf-doc td[align="center"] { text-align: center; }
+  .mpdf-doc th[align="right"], .mpdf-doc td[align="right"] { text-align: end; }
   ${e.tableStriped?`.mpdf-doc tbody tr:nth-child(even) { background: ${e.tableHeaderBg}55; }`:""}
 
   /* Callouts \u2014 override theme styles with !important so preview and export are
