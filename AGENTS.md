@@ -6,7 +6,9 @@ Guidance for agents working in this repo. See `README.md` for what the plugin do
 
 An Obsidian plugin. TypeScript sources live flat in `src/`, bundled to `main.js` by esbuild — `main.js` is a build artefact, not a source file, so never hand-edit it. It is tracked because the release workflow commits the build it publishes; revert that commit and you break the tag, the release, and the store's build check together. Styles are in `styles.css` and `src/css-builder.ts`.
 
-Unit tests sit next to the file they cover as `src/*.test.ts` and run under Vitest. The `obsidian` package ships types only, so a module that imports it can't be tested — keep testable logic import-free.
+Unit tests sit next to the file they cover as `src/*.test.ts` and run under Vitest. The `obsidian` package ships types only and has no runtime entry point, so `vitest.config.ts` aliases the bare specifier to `src/__mocks__/obsidian.ts`. That stub only has to cover what the module under test actually *calls* — an import it never invokes may be missing, but anything reached at run time must be there. Keep testable logic import-free regardless; reaching for the stub is a fallback, not a licence to import whatever.
+
+Tests that need a DOM ask for one per file with a `// @vitest-environment happy-dom` docblock. The default environment is `node`, which is right for the pure-string tests, so don't hoist it to `vitest.config.ts`.
 
 | Command   | What it does                                        |
 | --------- | --------------------------------------------------- |
@@ -17,6 +19,8 @@ Unit tests sit next to the file they cover as `src/*.test.ts` and run under Vite
 | `npm run lint:commits`  | Check commit subjects are conventional          |
 
 Run `npm test` and `npm run build` before considering a change done. Both run in CI on every push and pull request.
+
+`npm audit` reports moderate advisories in `@vitest/mocker` (via `vitest`) and `moment` (via `obsidian`) that are deliberate to leave: neither ships, since `obsidian` is `external` in the esbuild config, so `moment` never reaches `main.js`. Don't run `npm audit fix --force` to clear them — it offers to *downgrade* `obsidian` to `0.14.5`, which predates the 1.13 APIs used here, and to bump `vitest` to `5.0.3`, which will not install against the pinned `esbuild@0.25.5`. Either one breaks the build.
 
 ## Releasing
 

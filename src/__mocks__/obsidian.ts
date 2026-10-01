@@ -10,6 +10,25 @@ export class App {}
 
 export class TFile {}
 
+/** Base class for Obsidian's unloadable components. Only ever subclassed, never
+ *  instantiated, by the modules under test. */
+export class Component {
+  load(): void {}
+  unload(): void {}
+}
+
+/** Stubbed out: no test renders Obsidian markdown. A test that needs it should
+ *  build its own fake for the narrow API it calls. */
+export const MarkdownRenderer = {
+  render(): never {
+    throw new Error("MarkdownRenderer is not available in tests");
+  },
+};
+
+export function finishRenderMath(): never {
+  throw new Error("finishRenderMath is not available in tests");
+}
+
 /** Network access has no place in a unit test — fail loudly if something reaches it. */
 export function requestUrl(): never {
   throw new Error("requestUrl is not available in tests");

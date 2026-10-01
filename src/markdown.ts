@@ -61,8 +61,9 @@ function slugifyHeading(text: string): string {
 // Strips Obsidian-specific artefacts from rendered HTML so the output is
 // clean for pagination and export: assigns stable heading IDs for anchor
 // links, removes external-link decorators and copy-code buttons, force-expands
-// callouts, and strips top-level theme <style>/<script> injections while
-// preserving styles embedded inside SVGs (mermaid stores its theme CSS there).
+// callouts, strips top-level theme <style>/<script> injections while
+// preserving styles embedded inside SVGs (mermaid stores its theme CSS there),
+// and drops blocks that rendered empty (handled by removeEmptyBlocks below).
 function postProcessRenderedHTML(root: HTMLElement): void {
   // Stable, deduplicated IDs so in-page anchor links work across shadow DOMs.
   const seen = new Map<string, number>();
@@ -102,6 +103,49 @@ function postProcessRenderedHTML(root: HTMLElement): void {
   root.querySelectorAll("style, script").forEach((el) => {
     if (!el.closest("svg")) el.remove();
   });
+
+  removeEmptyBlocks(root);
+}
+
+/**
+ * Drops blocks that rendered empty, so the paginator never budgets vertical
+ * space for them.
+ *
+ * Obsidian turns a line that *begins* with a `%%` comment into a block boundary
+ * and then strips the comment text, leaving an empty element behind — the stray
+ * blank line this exists to remove. A run of N comment-only lines leaves N of
+ * them, which is why a single multi-line `%% … %%` block only ever left one.
+ * Since every `p` carries `margin-bottom`, the gap is a line box *plus* the
+ * paragraph spacing, not a hairline.
+ *
+ * Obsidian emits no trace of comments in the rendered HTML, so this cannot be
+ * comment-specific: it drops any empty element of these kinds. `p` is the case
+ * that was reported; the rest are there because each one keeps visible space or
+ * chrome once its contents are gone — a `blockquote` keeps its border and
+ * background, and `ul`/`ol` keep `padding-inline-start` plus a `margin-bottom`,
+ * so emptying only the `li` would leave the gap behind one level up. Fenced and
+ * inline code are safe by construction — they render as `pre`/`code`, which
+ * always carry children or text.
+ *
+ * Known limitation: a callout whose only content is a comment survives, because
+ * `.callout` is a `div` and so never matches this selector. Handled separately
+ * it would mean trusting a DOM shape this repo cannot verify.
+ */
+export function removeEmptyBlocks(root: HTMLElement): void {
+  // `ul`/`ol` only ever match here after every one of their `li` children has
+  // already gone, since those are visited first — see the reverse pass below.
+  const blocks = root.querySelectorAll("p, li, ul, ol, blockquote");
+
+  // Reverse order, deliberately. querySelectorAll walks in pre-order, so a
+  // forward pass would judge <blockquote><p></p></blockquote> while the
+  // blockquote still held its <p> child, and leave the empty box behind.
+  // Backwards, the inner <p> is removed first and the blockquote then qualifies
+  // on the same pass. The NodeList is a static snapshot, so removing as we go is
+  // safe.
+  for (let i = blocks.length - 1; i >= 0; i--) {
+    const el = blocks[i];
+    if (!(el.textContent ?? "").trim() && el.children.length === 0) el.remove();
+  }
 }
 
 // ─── Async post-processor waits ────────────────────────────────────────────────
