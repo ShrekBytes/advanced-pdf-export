@@ -31,6 +31,66 @@ export function splitMarkdownSections(md: string): string[] {
     .filter(Boolean);
 }
 
+/**
+ * Drops lines that consist of nothing but an inline `%%…%%` comment, so they
+ * cost no vertical space in the PDF. Complements removeEmptyBlocks: it covers
+ * the comment-only *paragraph*, while this handles the comment-only *line*
+ * inside a paragraph, where Obsidian leaves a `<br>` behind rather than an
+ * empty element — a shape no DOM-level pass can recognise.
+ *
+ * A line is a comment-only line when it begins with `%%` (up to three leading
+ * spaces) and closes on the same line with nothing visible after the closing
+ * `%%`. That narrow rule is what the #53 reporter hit, and keeping it narrow
+ * means anything else — multi-line `%% … %%` blocks, indented deeper, or with
+ * text after the closer, plus inline comments between words — renders exactly
+ * as before, however Obsidian treats it. The body of a multi-line block is
+ * stripped by the renderer anyway, so it needs no handling here.
+ *
+ * Deliberately a source-level pass: what never reaches the renderer can leave
+ * nothing behind. Fenced code is tracked, so a `%%` inside ``` fences is
+ * literal text and must survive. (It needs *no* per-line construct tracking:
+ * a `%%` opening a fenced block is still a comment open, the close hunt skips
+ * fences until the pair ends, and a line inside a fence is protected by the
+ * flag set when the fence opened.)
+ */
+export function stripCommentLines(md: string): string {
+  const out: string[] = [];
+  let inFence = false;
+  let fenceMarker = "";
+  for (const line of md.split("\n")) {
+    // Obsidian's fence test: up to three leading spaces, 3+ backticks or tildes.
+    const fence = /^ {0,3}(`{3,}|~{3,})/.exec(line);
+    if (fence) {
+      if (!inFence) {
+        inFence = true;
+        fenceMarker = fence[1];
+      } else if (fence[1][0] === fenceMarker[0] && fence[1].length >= fenceMarker.length) {
+        inFence = false; // CommonMark close: same char, at least as long.
+      }
+      out.push(line);
+      continue;
+    }
+    if (inFence) {
+      out.push(line);
+      continue;
+    }
+    // A comment-only line: opens with `%%`, its comment closes on this same
+    // line, and nothing visible follows. Counted via split, not regex: N `%%`
+    // occurrences split the line into N+1 segments, and toggling at each `%%`
+    // leaves the line's tail outside the comment only when the occurrence count
+    // is even — i.e. an odd segment count. The tail must also be blank. So
+    // "%%comment%%" (2 occurrences, 3 segments, blank tail) drops; "%%" (a
+    // multi-line block's opener) and "%%a%% text %%" (tail ends inside the
+    // comment, so "a text" is visible) both stay.
+    if (/^ {0,3}%%/.test(line)) {
+      const segments = line.split("%%");
+      if (segments.length % 2 === 1 && !segments[segments.length - 1].trim()) continue;
+    }
+    out.push(line);
+  }
+  return out.join("\n");
+}
+
 /** True when RTL script chars (Arabic, Hebrew, etc.) exceed 10 % of all
  *  alpha chars — ratio-based so mixed-script notes lean toward the majority. */
 const RTL_CHARS   = /[\u0590-\u08FF\uFB1D-\uFDFD\uFE70-\uFEFC]/g;
@@ -113,10 +173,15 @@ function postProcessRenderedHTML(root: HTMLElement): void {
  *
  * Obsidian turns a line that *begins* with a `%%` comment into a block boundary
  * and then strips the comment text, leaving an empty element behind — the stray
- * blank line this exists to remove. A run of N comment-only lines leaves N of
- * them, which is why a single multi-line `%% … %%` block only ever left one.
- * Since every `p` carries `margin-bottom`, the gap is a line box *plus* the
- * paragraph spacing, not a hairline.
+ * blank line this exists to remove. Since every `p` carries `margin-bottom`,
+ * the gap is a line box *plus* the paragraph spacing, not a hairline.
+ *
+ * A comment-only line that sits *inside* a paragraph (no blank lines around it)
+ * is a different shape: the renderer strips the comment text and leaves an
+ * orphaned `<br>` in the surviving paragraph, which no empty-block pass can
+ * recognise. That case is handled upstream by stripCommentLines() dropping the
+ * line from the source before rendering; this pass is the backstop for the
+ * block-level ghost.
  *
  * Obsidian emits no trace of comments in the rendered HTML, so this cannot be
  * comment-specific: it drops any empty element of these kinds. `p` is the case

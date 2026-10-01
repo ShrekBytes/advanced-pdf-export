@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import { describe, it, expect } from "vitest";
-import { removeEmptyBlocks } from "./markdown";
+import { removeEmptyBlocks, stripCommentLines } from "./markdown";
 
 // These fixtures are hand-written from Obsidian's reported output shape, not
 // captured from a live render — this repo cannot run Obsidian's MarkdownRenderer.
@@ -90,5 +90,65 @@ describe("removeEmptyBlocks", () => {
       + '<div class="callout-content"><p></p></div></div>';
     expect(clean(html)).toBe('<div class="callout"><div class="callout-title"></div>'
       + '<div class="callout-content"></div></div>');
+  });
+});
+
+// stripCommentLines runs before rendering, so its correctness is string-level.
+// The parity rule: N `%%` occurrences split a line into N+1 segments, and the
+// tail sits outside the comment only when N is even (odd segment count) — and
+// must then be blank for the line to qualify as comment-only.
+describe("stripCommentLines", () => {
+  it("drops comment-only lines inside a paragraph — the #53 report", () => {
+    // Five comment lines between text lines, no blank lines anywhere: the case
+    // removeEmptyBlocks missed, because each renders as an orphaned <br> inside
+    // one paragraph rather than an empty <p>.
+    const input = "hello test\nLorem ipsum\n%%comment%%\n%%comment%%\n%%comment%%\n%%comment%%\n%%comment%%\nasdasdas\naaa";
+    expect(stripCommentLines(input)).toBe("hello test\nLorem ipsum\nasdasdas\naaa");
+  });
+
+  it("drops a comment-only paragraph line and tolerates trailing space", () => {
+    expect(stripCommentLines("before\n%%comment%%  \nafter")).toBe("before\nafter");
+  });
+
+  it("keeps a multi-line %% block, which the renderer strips on its own", () => {
+    const input = "before\n%%\ncomment\nalso comment\n%%\nafter";
+    expect(stripCommentLines(input)).toBe(input);
+  });
+
+  it("keeps an inline comment between visible text", () => {
+    expect(stripCommentLines("text %%comment%% more")).toBe("text %%comment%% more");
+  });
+
+  it("keeps a line with visible text after the closing %%", () => {
+    expect(stripCommentLines("%%a%% tail")).toBe("%%a%% tail");
+  });
+
+  it("keeps a line whose tail re-opens a comment (odd %% count)", () => {
+    expect(stripCommentLines("%%a%% visible %%")).toBe("%%a%% visible %%");
+  });
+
+  it("keeps lines indented four spaces or more (code block, not a comment)", () => {
+    expect(stripCommentLines("    %%comment%%")).toBe("    %%comment%%");
+    expect(stripCommentLines("  %%comment%%")).toBe("");
+  });
+
+  it("keeps %% inside fenced code", () => {
+    expect(stripCommentLines("```\n%%comment%%\n```")).toBe("```\n%%comment%%\n```");
+    expect(stripCommentLines("~~~\n%%comment%%\n~~~")).toBe("~~~\n%%comment%%\n~~~");
+  });
+
+  it("honours fence length and marker character for closing", () => {
+    // A ``` run cannot close a ```` fence, and ~~~ cannot close ``` — so the
+    // middle lines stay inside the fence and must survive.
+    expect(stripCommentLines("````\n%%a%%\n```\n%%b%%\n````")).toBe("````\n%%a%%\n```\n%%b%%\n````");
+    expect(stripCommentLines("```\n%%a%%\n~~~\n%%b%%\n```")).toBe("```\n%%a%%\n~~~\n%%b%%\n```");
+  });
+
+  it("resumes dropping after a fence closes", () => {
+    expect(stripCommentLines("```\n%%a%%\n```\n%%b%%")).toBe("```\n%%a%%\n```");
+  });
+
+  it("drops an empty comment line", () => {
+    expect(stripCommentLines("a\n%%%%\nb")).toBe("a\nb");
   });
 });

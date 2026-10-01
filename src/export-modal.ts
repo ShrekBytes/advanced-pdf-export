@@ -20,8 +20,8 @@ import {
   getMathJaxCSSInlined, waitForMathJaxStylesheetStable,
 } from "./css-builder";
 import {
-  normalizeMarkdown, stripFrontmatter, splitMarkdownSections, isRTLContent,
-  renderMarkdownToEl,
+  normalizeMarkdown, stripFrontmatter, stripCommentLines, splitMarkdownSections,
+  isRTLContent, renderMarkdownToEl,
 } from "./markdown";
 import {
   paginateEl, buildPageLayouts, extractOutlineEntries, injectPDFOutline, PageLayout,
@@ -511,6 +511,10 @@ export class PDFExportModal extends Modal {
     if (s.hideFrontmatter) {
       md = stripFrontmatter(md);
     }
+
+    // Drop comment-only lines before rendering: inside a paragraph Obsidian
+    // leaves a <br> behind for each one, which removeEmptyBlocks cannot see.
+    md = stripCommentLines(md);
 
     if (s.includeFilenameAsTitle && this.currentFile) {
       md = `# ${this.currentFile.basename}\n\n${md}`;
