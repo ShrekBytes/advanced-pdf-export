@@ -239,7 +239,7 @@ function splitOversizedListItem(
   if (nestedIdx < 0) {
     const split = splitInlineElement(item, (first) => fits(head(first)), forceSplit);
     if (!split) return null;
-    split[1].style.listStyle = "none";
+    split[1].setCssStyles({ listStyle: "none" });
     return [head(split[0]), tail(split[1])];
   }
 
@@ -250,7 +250,7 @@ function splitOversizedListItem(
    *  continuation, and dropped entirely from the continuation's own text. */
   const buildItem = (content: HTMLElement, continuation: boolean): HTMLElement => {
     const itemClone = item.cloneNode(false) as HTMLElement;
-    if (continuation) itemClone.style.listStyle = "none";
+    if (continuation) itemClone.setCssStyles({ listStyle: "none" });
     else for (const node of children.slice(0, nestedIdx)) itemClone.appendChild(node.cloneNode(true));
     itemClone.appendChild(content);
     if (continuation) {
@@ -388,7 +388,7 @@ function buildPinnedRowTable(
   widths: number[],
 ): HTMLTableElement {
   const clone = tableEl.cloneNode(false) as HTMLTableElement;
-  clone.style.tableLayout = "fixed";
+  clone.setCssStyles({ tableLayout: "fixed" });
   const colgroup = createEl("colgroup");
   for (const width of widths) {
     const col = createEl("col");

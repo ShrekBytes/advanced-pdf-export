@@ -16,6 +16,15 @@ import { splitListElement, splitTableElement } from "./paginator";
 (globalThis as unknown as { createEl: (tag: string) => HTMLElement }).createEl =
   (tag) => document.createElement(tag);
 
+// Obsidian installs setCssStyles on the DOM prototypes, and the splitters use it
+// in place of direct style assignment (which the store's lint bot rejects). The
+// real implementation writes through the style declaration, so do the same.
+(HTMLElement.prototype as unknown as {
+  setCssStyles(this: HTMLElement, styles: Partial<CSSStyleDeclaration>): void;
+}).setCssStyles = function (styles) {
+  Object.assign(this.style, styles);
+};
+
 // happy-dom's HTMLTableSectionElement implements insertRow/deleteRow but not the
 // `rows` collection that browsers expose and the splitter relies on, so supply it.
 // The gap is the test environment's; the production code is correct as written.
