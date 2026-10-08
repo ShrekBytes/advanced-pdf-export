@@ -1,5 +1,15 @@
 [
   {
+    "version": "4.7.3",
+    "date": "2026-10-09",
+    "changes": [
+      "Fixed table rows with several tall cells being cut off at a page break.",
+      "Fixed page breaks cutting off nested lists and tall table rows.",
+      "Fixed blank lines from comment-only lines inside a paragraph.",
+      "Fixed blank lines left behind by comment-only lines."
+    ]
+  },
+  {
     "version": "4.7.2",
     "date": "2026-09-30",
     "changes": []
@@ -65,12 +75,5 @@
     "version": "4.2.1",
     "date": "2026-07-12",
     "changes": []
-  },
-  {
-    "version": "4.2.0",
-    "date": "2026-07-10",
-    "changes": [
-      "Added a customizable page number format."
-    ]
   }
 ]
