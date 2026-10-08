@@ -349,23 +349,169 @@ function buildTableWithRows(tableEl: HTMLTableElement, rows: HTMLTableRowElement
   return clone;
 }
 
-/** Rebuilds `row` with cell `cellIdx` replaced. `keepOthers` keeps the other
- *  cells whole for the page that renders them; the continuation passes false,
- *  because those cells already rendered on the earlier page and repeating them
- *  would duplicate their content. The empty cells stay in place so the column
- *  layout is unchanged. */
-function buildRowWithCell(
-  row: HTMLTableRowElement,
-  cellIdx: number,
-  replacement: HTMLElement,
-  keepOthers: boolean,
-): HTMLTableRowElement {
+/** Rebuilds `row` with `contents` as its cells, in order. */
+function buildRowWithCells(row: HTMLTableRowElement, contents: HTMLElement[]): HTMLTableRowElement {
   const clone = row.cloneNode(false) as HTMLTableRowElement;
-  Array.from(row.cells).forEach((cell, i) => {
-    if (i === cellIdx) clone.appendChild(replacement);
-    else clone.appendChild(keepOthers ? cell.cloneNode(true) : cell.cloneNode(false));
-  });
+  for (const cell of contents) clone.appendChild(cell);
   return clone;
+}
+
+/** The row's cells, either whole or blanked. A blanked cell keeps its attributes
+ *  so the column it occupies does not collapse. */
+function rowCells(row: HTMLTableRowElement, blank: boolean): HTMLElement[] {
+  return Array.from(row.cells).map(
+    (cell) => (blank ? cell.cloneNode(false) : cell.cloneNode(true)) as HTMLElement,
+  );
+}
+
+/** The table's column widths in px, read from a row that spans no columns —
+ *  column widths are a property of the table, so any such row carries the real
+ *  ones. Null when no row qualifies (a `<colspan>` anywhere means the plain widths
+ *  are not recoverable this way), or when the table is not laid out and every
+ *  width reads zero. */
+function columnWidths(tableEl: HTMLTableElement): number[] | null {
+  for (const row of Array.from(tableEl.rows)) {
+    const cells = Array.from(row.cells);
+    if (cells.length === 0 || cells.some((c) => c.colSpan !== 1)) continue;
+    const widths = cells.map((c) => c.getBoundingClientRect().width);
+    return widths.every((w) => w > 0) ? widths : null;
+  }
+  return null;
+}
+
+/** The row rebuilt with the table's column widths pinned, so a cell measured on
+ *  its own still wraps at the width it really gets. */
+function buildPinnedRowTable(
+  tableEl: HTMLTableElement,
+  row: HTMLTableRowElement,
+  contents: HTMLElement[],
+  widths: number[],
+): HTMLTableElement {
+  const clone = tableEl.cloneNode(false) as HTMLTableElement;
+  clone.style.tableLayout = "fixed";
+  const colgroup = createEl("colgroup");
+  for (const width of widths) {
+    const col = createEl("col");
+    col.style.width = `${width}px`;
+    colgroup.appendChild(col);
+  }
+  clone.appendChild(colgroup);
+  if (tableEl.tHead) clone.appendChild(tableEl.tHead.cloneNode(true));
+  const tbody = createEl("tbody");
+  tbody.appendChild(buildRowWithCells(row, contents));
+  clone.appendChild(tbody);
+  return clone;
+}
+
+/**
+ * Cuts a row by cutting every cell that is too tall for the page.
+ *
+ * A row is exactly as tall as its tallest cell, because cells sit side by side.
+ * So a row holding two cells that each exceed a page cannot be fixed by cutting
+ * one of them — the other still bounds the row — and every cell has to be measured
+ * and cut on its own.
+ *
+ * Measuring one cell means getting the others out of the way, and simply emptying
+ * them changes the table's layout: a lone cell lays out across the full table
+ * width, roughly halving its height and putting the cut twice as far along. So the
+ * real column widths are pinned first with `table-layout: fixed` and a
+ * `<colgroup>`, which makes emptying the neighbours harmless — the candidate wraps
+ * at the width it really gets.
+ */
+function splitRowCuttingEveryCell(
+  tableEl: HTMLTableElement,
+  rows: HTMLTableRowElement[],
+  fits: (node: HTMLElement) => boolean,
+  forceSplit: boolean,
+): [HTMLElement, HTMLElement] | null {
+  const row = rows[0];
+  const cells = Array.from(row.cells);
+  if (cells.length === 0) return null;
+
+  const widths = columnWidths(tableEl);
+  if (!widths) return null;
+
+  const head: HTMLElement[] = [];
+  const tail: HTMLElement[] = [];
+  let cut = 0;
+
+  for (let i = 0; i < cells.length; i++) {
+    /** This cell alone in the row: the other columns are blank, and the pinned
+     *  widths keep that from changing how the candidate wraps. */
+    const alone = (content: HTMLElement) =>
+      buildPinnedRowTable(
+        tableEl,
+        row,
+        cells.map((cell, j) => (j === i ? content : (cell.cloneNode(false) as HTMLElement))),
+        widths,
+      );
+
+    if (fits(alone(cells[i].cloneNode(true) as HTMLElement))) {
+      // Fits the page on its own, so it is shown whole and its column goes empty
+      // on the continuation — which is what a browser does when it fragments a row.
+      head.push(cells[i].cloneNode(true) as HTMLElement);
+      tail.push(cells[i].cloneNode(false) as HTMLElement);
+      continue;
+    }
+
+    const split = splitInlineElement(cells[i], (first) => fits(alone(first)), forceSplit);
+    // A cell with no break point leaves the row too tall whatever the others do,
+    // so the whole cut fails and the caller falls back.
+    if (!split) return null;
+    head.push(split[0]);
+    tail.push(split[1]);
+    cut++;
+  }
+
+  if (cut === 0) return null;
+  return [
+    buildTableWithRows(tableEl, [buildRowWithCells(row, head)]),
+    buildTableWithRows(tableEl, [buildRowWithCells(row, tail), ...rows.slice(1)]),
+  ];
+}
+
+/**
+ * Cuts a row at a single cell, measured against the row as it really is.
+ *
+ * The fallback for tables `splitRowCuttingEveryCell` cannot pin: a `<colspan>`
+ * leaves no row carrying the plain column widths, and an unlaid-out table reports
+ * every width as zero. It needs no pinning because it never isolates a cell, but
+ * it can only cut one, so a row with two oversized cells gets no split from it.
+ */
+function splitRowCuttingOneCell(
+  tableEl: HTMLTableElement,
+  rows: HTMLTableRowElement[],
+  fits: (node: HTMLElement) => boolean,
+  forceSplit: boolean,
+): [HTMLElement, HTMLElement] | null {
+  const row = rows[0];
+  const cells = Array.from(row.cells);
+  if (cells.length === 0) return null;
+
+  for (let i = 0; i < cells.length; i++) {
+    // Measured with every cell present, so the candidate wraps at the column
+    // width it really gets.
+    const split = splitInlineElement(
+      cells[i],
+      (first) => {
+        const contents = rowCells(row, false);
+        contents[i] = first;
+        return fits(buildTableWithRows(tableEl, [buildRowWithCells(row, contents)]));
+      },
+      forceSplit,
+    );
+    if (!split) continue;
+
+    const head = rowCells(row, false);
+    head[i] = split[0];
+    const tail = rowCells(row, true);
+    tail[i] = split[1];
+    return [
+      buildTableWithRows(tableEl, [buildRowWithCells(row, head)]),
+      buildTableWithRows(tableEl, [buildRowWithCells(row, tail), ...rows.slice(1)]),
+    ];
+  }
+  return null;
 }
 
 /**
@@ -378,11 +524,6 @@ function buildRowWithCell(
  * overflow. A browser in normal flow continues such a row onto the next page and
  * repeats the header, which is what this reproduces; `buildTableWithRows` already
  * re-clones the `<thead>` into every fragment, so the header needs nothing here.
- *
- * Cells are tried in order and the first that can be split wins. Only the tallest
- * cell bounds the row's height, so a shorter one can never yield a split — cutting
- * it cannot reduce the row — and a row holding two cells that each exceed a page
- * reports no split rather than guessing at a cut.
  */
 function splitOversizedTableRow(
   tableEl: HTMLTableElement,
@@ -390,27 +531,10 @@ function splitOversizedTableRow(
   fits: (node: HTMLElement) => boolean,
   forceSplit: boolean,
 ): [HTMLElement, HTMLElement] | null {
-  const row = rows[0];
-  const cells = Array.from(row.cells);
-  if (cells.length === 0) return null;
-
-  for (let i = 0; i < cells.length; i++) {
-    // Measured with every cell present, so the candidate wraps at the column
-    // width it really gets — an isolated cell would lay out at the full table
-    // width and under-report its height.
-    const split = splitInlineElement(
-      cells[i],
-      (first) => fits(buildTableWithRows(tableEl, [buildRowWithCell(row, i, first, true)])),
-      forceSplit,
-    );
-    if (!split) continue;
-
-    return [
-      buildTableWithRows(tableEl, [buildRowWithCell(row, i, split[0], true)]),
-      buildTableWithRows(tableEl, [buildRowWithCell(row, i, split[1], false), ...rows.slice(1)]),
-    ];
-  }
-  return null;
+  return (
+    splitRowCuttingEveryCell(tableEl, rows, fits, forceSplit) ??
+    splitRowCuttingOneCell(tableEl, rows, fits, forceSplit)
+  );
 }
 
 /**
@@ -648,10 +772,15 @@ export function paginateEl(
         if (!firstFits) overflowed = true;
         pages.push(currentPage);
         currentPage = [];
-        // Replace current child with the remainder for re-processing.
+        // Replace current child with the remainder for re-processing. The swap is
+        // made in the sandbox too, not just in the array: the table splitter reads
+        // real column widths off the node it is given, and a detached node has no
+        // layout to read them from — which silently disables the multi-cell path
+        // on every page after the first.
         const remainder = split[1];
         if (remainder.textContent?.trim() || remainder.children.length > 0) {
           children[idx] = remainder;
+          inner.replaceChild(remainder, child);
         } else {
           idx++;
         }

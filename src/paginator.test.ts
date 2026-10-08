@@ -29,6 +29,18 @@ if (!("rows" in tbodyProto)) {
   });
 }
 
+// happy-dom lays nothing out — every box reports 0x0 — so the table splitter
+// cannot read the column widths it pins before measuring a cell on its own. Give
+// the cells a width for the test environment; the production code is right to
+// insist on a laid-out table.
+const nativeRect = Element.prototype.getBoundingClientRect;
+Element.prototype.getBoundingClientRect = function (this: Element) {
+  if (this.tagName === "TD" || this.tagName === "TH") {
+    return { width: 300, height: 0, top: 0, left: 0, right: 300, bottom: 0, x: 0, y: 0 } as DOMRect;
+  }
+  return nativeRect.call(this);
+};
+
 /** Parses a fragment and returns its single root element. */
 function el(html: string): HTMLElement {
   const host = document.createElement("div");
@@ -266,10 +278,10 @@ describe("splitTableElement", () => {
     const split = splitTableElement(table as HTMLTableElement, fitsUnder(12), true)!;
 
     // The first page keeps the neighbour cell whole...
-    expect(text(split[0])).toBe("alphaKEEP");
+    expect(text(split[0])).toBe("alphabetaKEEP");
     // ...and the continuation keeps the cell in place but empty, so the column
     // layout is unchanged and the content is not duplicated.
-    expect(text(split[1])).toBe("betagammadelta");
+    expect(text(split[1])).toBe("gammadelta");
     const cells = split[1].querySelectorAll("td");
     expect(cells).toHaveLength(2);
     expect(cells[1].textContent).toBe("");
@@ -315,5 +327,70 @@ describe("splitTableElement", () => {
   it("reports no split when the cell has nothing left to break", () => {
     const table = el("<table><tbody><tr><td>A</td></tr></tbody></table>");
     expect(splitTableElement(table as HTMLTableElement, fitsUnder(0), true)).toBeNull();
+  });
+});
+
+describe("splitTableElement — a row with more than one oversized cell", () => {
+  // The regression this whole path exists for: a row is as tall as its TALLEST
+  // cell, so with two oversized cells cutting one leaves the other bounding the
+  // row. Before this, no split was possible at all and the row was clipped.
+  it("cuts every cell that is too tall, not just the tallest", () => {
+    const table = el(
+      "<table><tbody><tr><td>alpha beta gamma delta</td><td>one two three four</td></tr></tbody></table>",
+    );
+    const split = splitTableElement(table as HTMLTableElement, fitsUnder(10), true);
+
+    expect(split).not.toBeNull();
+    // Both cells are cut, and both remainders reach the continuation.
+    expect(text(split![0])).toBe("alphabetaonetwo");
+    expect(text(split![1])).toBe("gammadeltathreefour");
+    expect(split![0].querySelectorAll("td")).toHaveLength(2);
+    expect(split![1].querySelectorAll("td")).toHaveLength(2);
+  });
+
+  it("measures a cell on its own, so a short neighbour does not shorten its cut", () => {
+    // The row's budget belongs to the row, not shared out between cells: a cell
+    // that fits on its own must not be cut short to make room for a neighbour that
+    // is nowhere near the limit.
+    const table = el(
+      "<table><tbody><tr><td>alpha beta gamma delta</td><td>ZZ</td></tr></tbody></table>",
+    );
+    const split = splitTableElement(table as HTMLTableElement, fitsUnder(10), true)!;
+
+    // Ten characters of budget, so cell one keeps nine of its own rather than
+    // being trimmed by the two characters its neighbour used.
+    expect(text(split[0])).toBe("alphabetaZZ");
+    expect(text(split[1])).toBe("gammadelta");
+    expect(split[1].querySelectorAll("td")[1].textContent).toBe("");
+  });
+
+  it("still splits a colspan table, via the single-cell fallback", () => {
+    // A `<colspan>` means no row carries the plain column widths, so the widths
+    // cannot be pinned and the fallback does the work. It must not regress.
+    const table = el(
+      '<table><tbody><tr><td colspan="2">alpha beta gamma delta</td></tr></tbody></table>',
+    );
+    const split = splitTableElement(table as HTMLTableElement, fitsUnder(10), true);
+
+    expect(split).not.toBeNull();
+    expect(text(split![0])).toBe("alphabeta");
+    expect(text(split![1])).toBe("gammadelta");
+    // The span is preserved on both fragments, so the grid is unchanged.
+    expect((split![0].querySelector("td") as HTMLTableCellElement).colSpan).toBe(2);
+    expect((split![1].querySelector("td") as HTMLTableCellElement).colSpan).toBe(2);
+  });
+
+  it("repeats the header when both cells are cut", () => {
+    const table = el(
+      "<table><thead><tr><th>H</th><th>I</th></tr></thead><tbody>" +
+        "<tr><td>alpha beta gamma delta</td><td>one two three four</td></tr>" +
+        "</tbody></table>",
+    );
+    const split = splitTableElement(table as HTMLTableElement, fitsUnder(11), true)!;
+
+    expect(split[0].querySelector("thead")).not.toBeNull();
+    expect(split[1].querySelector("thead")).not.toBeNull();
+    expect(text(split[0])).toBe("HIalphabetaonetwo");
+    expect(text(split[1])).toBe("HIgammadeltathreefour");
   });
 });
