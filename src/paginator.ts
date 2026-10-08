@@ -181,7 +181,107 @@ function buildListWithItems(listEl: HTMLElement, items: HTMLElement[], startAt?:
   return clone;
 }
 
-function splitListElement(
+function isListElement(node: Node): boolean {
+  return (
+    node.nodeType === Node.ELEMENT_NODE &&
+    ((node as HTMLElement).tagName === "UL" || (node as HTMLElement).tagName === "OL")
+  );
+}
+
+/**
+ * Cuts inside a list's first item, which is too tall to fit a page even alone.
+ *
+ * A list whose only top-level item owns everything below it has no cut point of
+ * its own — and that is exactly what any tab-indented outline produces, since
+ * every later bullet becomes a descendant of the first. Without descending into
+ * the item such a list is atomic: it cannot fit and cannot be split, so
+ * `paginateEl` places it whole and the page's `overflow: hidden` silently
+ * discards everything past the page edge.
+ *
+ * Two shapes to cut, depending on where the height is:
+ *
+ * - the item holds a nested list, so cut that at an item boundary and re-open the
+ *   item around both halves;
+ * - the item is a leaf, so the oversized thing is its own text and the text is
+ *   split directly.
+ *
+ * Either way the continuation is marker-less. A bullet broken across a page shows
+ * no marker on the fragment that runs on — that is what a browser does when it
+ * fragments a list item itself, and the marker's behaviour under fragmentation is
+ * otherwise undefined in CSS, so reproducing it is the only dependable choice.
+ */
+function splitOversizedListItem(
+  listEl: HTMLElement,
+  items: HTMLElement[],
+  existingStart: number,
+  fits: (node: HTMLElement) => boolean,
+  forceSplit: boolean,
+): [HTMLElement, HTMLElement] | null {
+  const item = items[0];
+
+  /** The list as the page holding this item's first half sees it. */
+  const head = (firstItem: HTMLElement): HTMLElement => {
+    const listClone = listEl.cloneNode(false) as HTMLElement;
+    listClone.appendChild(firstItem);
+    return listClone;
+  };
+  /** The continuation: this item's remainder, then the siblings it used to
+   *  precede. */
+  const tail = (secondItem: HTMLElement): HTMLElement => {
+    const listClone = buildListWithItems(listEl, items.slice(1), existingStart + 1);
+    listClone.insertBefore(secondItem, listClone.firstChild);
+    return listClone;
+  };
+
+  const children = Array.from(item.childNodes);
+  const nestedIdx = children.findIndex(isListElement);
+
+  if (nestedIdx < 0) {
+    const split = splitInlineElement(item, (first) => fits(head(first)), forceSplit);
+    if (!split) return null;
+    split[1].style.listStyle = "none";
+    return [head(split[0]), tail(split[1])];
+  }
+
+  const nested = children[nestedIdx] as HTMLElement;
+
+  /** Rebuilds the item around `content`, keeping the item's own children on one
+   *  side of the cut — ahead of it in the first fragment, after it in the
+   *  continuation, and dropped entirely from the continuation's own text. */
+  const buildItem = (content: HTMLElement, continuation: boolean): HTMLElement => {
+    const itemClone = item.cloneNode(false) as HTMLElement;
+    if (continuation) itemClone.style.listStyle = "none";
+    else for (const node of children.slice(0, nestedIdx)) itemClone.appendChild(node.cloneNode(true));
+    itemClone.appendChild(content);
+    if (continuation) {
+      for (const node of children.slice(nestedIdx + 1)) itemClone.appendChild(node.cloneNode(true));
+    }
+    return itemClone;
+  };
+
+  // What actually gets measured and placed is always the wrapped fragment, never
+  // the bare nested list — the ancestor chain's own height counts towards the fit.
+  const nestedSplit = splitListElement(
+    nested,
+    (fragment) => fits(head(buildItem(fragment, false))),
+    forceSplit,
+  );
+  if (!nestedSplit) return null;
+  return [head(buildItem(nestedSplit[0], false)), tail(buildItem(nestedSplit[1], true))];
+}
+
+/**
+ * Splits a list across a page boundary, at the deepest point it can.
+ *
+ * Cut points are item boundaries. When the list has no usable one — a single
+ * top-level item, or a first item too tall for a whole page — it cuts inside that
+ * item instead of giving up, so a list is atomic only when its oversized content
+ * has no break point at all (one unbreakable word, an image).
+ *
+ * Exported for direct testing: `fits` is injectable, so the choice of where to
+ * cut can be exercised without real layout.
+ */
+export function splitListElement(
   listEl: HTMLElement,
   fits: (node: HTMLElement) => boolean,
   forceSplit: boolean,
@@ -202,17 +302,35 @@ function splitListElement(
     else break;
   }
 
-  // When forced (alone on empty page), guarantee at least 1 item moves forward.
-  if (fitCount <= 0) {
-    if (!forceSplit || items.length < 2) return null;
-    fitCount = 1;
+  if (fitCount > 0 && fitCount < items.length) {
+    return [
+      buildListWithItems(listEl, items.slice(0, fitCount), existingStart),
+      // Second fragment starts at existingStart + fitCount so numbering is continuous.
+      buildListWithItems(listEl, items.slice(fitCount), existingStart + fitCount),
+    ];
   }
+
+  // Everything fits this page — nothing to cut.
   if (fitCount >= items.length) return null;
 
+  // fitCount === 0: not even the first item fits. When that item owns a nested
+  // list, cut inside it: the cut still lands on an item boundary, one level
+  // down, so a half-empty page gets filled instead of flushed and the rest of
+  // the list stays reachable. `forceSplit` passes through, so a page with no
+  // room for even one nested item still falls through to the flush below.
+  const descended = splitOversizedListItem(listEl, items, existingStart, fits, forceSplit);
+  if (descended) return descended;
+
+  // Nothing nested to cut into. Flush a non-empty page and retry the list
+  // against a full one before giving up on it.
+  if (!forceSplit) return null;
+
+  // Move the first item forward anyway so the rest of the list still reaches a
+  // later page.
+  if (items.length < 2) return null;
   return [
-    buildListWithItems(listEl, items.slice(0, fitCount), existingStart),
-    // Second fragment starts at existingStart + fitCount so numbering is continuous.
-    buildListWithItems(listEl, items.slice(fitCount), existingStart + fitCount),
+    buildListWithItems(listEl, items.slice(0, 1), existingStart),
+    buildListWithItems(listEl, items.slice(1), existingStart + 1),
   ];
 }
 
@@ -231,7 +349,82 @@ function buildTableWithRows(tableEl: HTMLTableElement, rows: HTMLTableRowElement
   return clone;
 }
 
-function splitTableElement(
+/** Rebuilds `row` with cell `cellIdx` replaced. `keepOthers` keeps the other
+ *  cells whole for the page that renders them; the continuation passes false,
+ *  because those cells already rendered on the earlier page and repeating them
+ *  would duplicate their content. The empty cells stay in place so the column
+ *  layout is unchanged. */
+function buildRowWithCell(
+  row: HTMLTableRowElement,
+  cellIdx: number,
+  replacement: HTMLElement,
+  keepOthers: boolean,
+): HTMLTableRowElement {
+  const clone = row.cloneNode(false) as HTMLTableRowElement;
+  Array.from(row.cells).forEach((cell, i) => {
+    if (i === cellIdx) clone.appendChild(replacement);
+    else clone.appendChild(keepOthers ? cell.cloneNode(true) : cell.cloneNode(false));
+  });
+  return clone;
+}
+
+/**
+ * Cuts inside a table's first row, which is too tall to fit a page even alone.
+ *
+ * The row splitter cuts between rows only, so a table whose height sits inside one
+ * row — a single-row table, or one oversized row among short ones — has no cut
+ * point of its own and is atomic: it cannot fit and cannot be split, so
+ * `paginateEl` places it whole and the page's `overflow: hidden` discards the
+ * overflow. A browser in normal flow continues such a row onto the next page and
+ * repeats the header, which is what this reproduces; `buildTableWithRows` already
+ * re-clones the `<thead>` into every fragment, so the header needs nothing here.
+ *
+ * Cells are tried in order and the first that can be split wins. Only the tallest
+ * cell bounds the row's height, so a shorter one can never yield a split — cutting
+ * it cannot reduce the row — and a row holding two cells that each exceed a page
+ * reports no split rather than guessing at a cut.
+ */
+function splitOversizedTableRow(
+  tableEl: HTMLTableElement,
+  rows: HTMLTableRowElement[],
+  fits: (node: HTMLElement) => boolean,
+  forceSplit: boolean,
+): [HTMLElement, HTMLElement] | null {
+  const row = rows[0];
+  const cells = Array.from(row.cells);
+  if (cells.length === 0) return null;
+
+  for (let i = 0; i < cells.length; i++) {
+    // Measured with every cell present, so the candidate wraps at the column
+    // width it really gets — an isolated cell would lay out at the full table
+    // width and under-report its height.
+    const split = splitInlineElement(
+      cells[i],
+      (first) => fits(buildTableWithRows(tableEl, [buildRowWithCell(row, i, first, true)])),
+      forceSplit,
+    );
+    if (!split) continue;
+
+    return [
+      buildTableWithRows(tableEl, [buildRowWithCell(row, i, split[0], true)]),
+      buildTableWithRows(tableEl, [buildRowWithCell(row, i, split[1], false), ...rows.slice(1)]),
+    ];
+  }
+  return null;
+}
+
+/**
+ * Splits a table across a page boundary, at the deepest point it can.
+ *
+ * Cut points are row boundaries. When the table has no usable one — a single row,
+ * or a first row too tall for a whole page — it cuts inside that row instead of
+ * giving up, so a table is atomic only when the oversized cell has no break point
+ * at all (one unbreakable word, an image).
+ *
+ * Exported for direct testing: `fits` is injectable, so the choice of where to
+ * cut can be exercised without real layout.
+ */
+export function splitTableElement(
   tableEl: HTMLTableElement,
   fits: (node: HTMLElement) => boolean,
   forceSplit: boolean,
@@ -248,16 +441,32 @@ function splitTableElement(
     else break;
   }
 
-  // When forced (alone on empty page), guarantee at least 1 row moves forward.
-  if (fitCount <= 0) {
-    if (!forceSplit || rows.length < 2) return null;
-    fitCount = 1;
+  if (fitCount > 0 && fitCount < rows.length) {
+    return [
+      buildTableWithRows(tableEl, rows.slice(0, fitCount)),
+      buildTableWithRows(tableEl, rows.slice(fitCount)),
+    ];
   }
+
+  // Everything fits this page — nothing to cut.
   if (fitCount >= rows.length) return null;
 
+  // fitCount === 0: not even the first row fits. When its height sits inside one
+  // cell, cut that cell so the page is filled and the rest of the table stays
+  // reachable, rather than committing a row that cannot fit.
+  const descended = splitOversizedTableRow(tableEl, rows, fits, forceSplit);
+  if (descended) return descended;
+
+  // Nothing to cut inside the row. Flush a non-empty page and retry against a
+  // full one before giving up.
+  if (!forceSplit) return null;
+
+  // Move the first row forward anyway so the rest of the table still reaches a
+  // later page.
+  if (rows.length < 2) return null;
   return [
-    buildTableWithRows(tableEl, rows.slice(0, fitCount)),
-    buildTableWithRows(tableEl, rows.slice(fitCount)),
+    buildTableWithRows(tableEl, rows.slice(0, 1)),
+    buildTableWithRows(tableEl, rows.slice(1)),
   ];
 }
 
@@ -356,15 +565,31 @@ function splitElement(
 
 // ── Main pagination loop ─────────────────────────────────────────────────────
 
+export interface PaginationResult {
+  pages: HTMLElement[][];
+  /**
+   * True when a page was emitted holding content that does not fit it.
+   *
+   * That content is not moved to the next page — the export page is a
+   * fixed-height box with `overflow: hidden`, which CSS fragmentation treats as
+   * monolithic (no break points inside), so the overflow is clipped and lost.
+   * Nothing downstream can detect this: `printToPDF` returns bytes only, with no
+   * clipping report. So this flag is the only warning available, and callers
+   * should surface it rather than shipping a silently lossy PDF.
+   */
+  overflowed: boolean;
+}
+
 /** Distributes a rendered section's block children into page-height buckets,
  *  splitting oversized elements by natural unit (line, row, list item, word,
- *  or character) when they don't fit whole. Returns one HTMLElement[] per page. */
+ *  or character) when they don't fit whole. Returns one HTMLElement[] per page,
+ *  plus whether any page was known to overflow. */
 export function paginateEl(
   sourceEl: HTMLElement,
   contentWidthPx: number,
   contentHeightPx: number,
   docCSS: string,
-): HTMLElement[][] {
+): PaginationResult {
   // Hidden shadow-root sandbox: scoped CSS prevents host-document pollution.
   const sandboxHost = createDiv();
   sandboxHost.setCssStyles({
@@ -395,6 +620,7 @@ export function paginateEl(
   activeDocument.body.appendChild(sandboxHost);
 
   const pages: HTMLElement[][] = [];
+  let overflowed = false;
   try {
     let currentPage: HTMLElement[] = [];
     const children = Array.from(inner.children) as HTMLElement[];
@@ -414,7 +640,12 @@ export function paginateEl(
       const forceSplit = currentPage.length === 0;
       const split = splitElement(child, fits, forceSplit);
       if (split) {
+        // Measure before committing: `fits` spreads currentPage, so testing after
+        // the push would measure split[0] against itself. A splitter that had to
+        // force progress can hand back a first fragment that still doesn't fit.
+        const firstFits = fits(split[0]);
         currentPage.push(split[0]);
+        if (!firstFits) overflowed = true;
         pages.push(currentPage);
         currentPage = [];
         // Replace current child with the remainder for re-processing.
@@ -436,7 +667,9 @@ export function paginateEl(
       }
 
       // Element is alone on an empty page and truly unsplittable (e.g. a giant
-      // image). Force it onto its own page and advance so we never stall.
+      // image, or a word wider than the page). Force it onto its own page and
+      // advance so we never stall — its overflow will be clipped, so report it.
+      overflowed = true;
       currentPage.push(child.cloneNode(true) as HTMLElement);
       pages.push(currentPage);
       currentPage = [];
@@ -447,7 +680,7 @@ export function paginateEl(
   } finally {
     activeDocument.body.removeChild(sandboxHost);
   }
-  return pages.length > 0 ? pages : [[]];
+  return { pages: pages.length > 0 ? pages : [[]], overflowed };
 }
 
 // ─── Page layout builder ──────────────────────────────────────────────────────

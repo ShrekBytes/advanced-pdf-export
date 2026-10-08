@@ -203,6 +203,9 @@ export class PDFExportModal extends Modal {
   private currentFile: TFile | null = null;
   private renderToken = 0;
   private layoutCache: LayoutCache | null = null;
+  // Last reported overflow state, so the warning fires on change rather than on
+  // every render. See reportOverflow().
+  private contentOverflowed = false;
   // Debounce handle for settings-driven re-renders; cleared on close.
   private renderDebounceTimer: number | null = null;
 
@@ -561,16 +564,42 @@ export class PDFExportModal extends Modal {
     const fullCSS = shadowMathCSS ? `${shadowMathCSS}\n${docCSS}` : docCSS;
 
     const allPages: HTMLElement[][] = [];
+    let overflowed = false;
     for (const sectionEl of sectionEls) {
-      allPages.push(...paginateEl(sectionEl, contentW, contentH, fullCSS));
+      const section = paginateEl(sectionEl, contentW, contentH, fullCSS);
+      allPages.push(...section.pages);
+      if (section.overflowed) overflowed = true;
     }
 
     const layouts = buildPageLayouts(allPages, s, this.currentFile?.basename ?? "");
     this.layoutCache = { layouts, pw, ph, mTop, mLeft, mRight, footerH, headerH, contentW, contentH, docCSS: fullCSS, fontFamily: resolveFont(s), accentColor: s.accentColor, pageBackground: s.pageBackground, isRTL };
 
     this.drawPreview(this.layoutCache, s.previewScale);
-    this.pageCountEl.textContent = `${layouts.length} page${layouts.length !== 1 ? "s" : ""}`;
+    this.reportOverflow(overflowed, layouts.length);
     this.hideLoading();
+  }
+
+  /** Reports content the paginator could not fit or split.
+   *
+   * The export page is a fixed-height box with `overflow: hidden`, which CSS
+   * fragmentation treats as monolithic — no break points inside — so anything
+   * past its height is clipped and lost rather than moved to the next page. The
+   * print pipeline cannot tell us this: `printToPDF` resolves with bytes and no
+   * clipping report. So this is the only chance to warn, and it is worth taking
+   * because a silently lossy PDF looks like a correct one.
+   *
+   * Announced only when the state changes: rendering reruns on every edit, and a
+   * notice per keystroke would be worse than the silence. */
+  private reportOverflow(overflowed: boolean, pageCount: number): void {
+    const pages = `${pageCount} page${pageCount !== 1 ? "s" : ""}`;
+    this.pageCountEl.textContent = overflowed ? `${pages} · content cut off` : pages;
+
+    if (overflowed && !this.contentOverflowed) {
+      new Notice(
+        "Advanced PDF Export — some content is taller than one page and cannot be split, so it will be cut off. Try a smaller font, larger margins, or a shorter block.",
+      );
+    }
+    this.contentOverflowed = overflowed;
   }
 
   private renderPreviewOnly() {
