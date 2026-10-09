@@ -1,5 +1,13 @@
 [
   {
+    "version": "4.7.7",
+    "date": "2026-10-09",
+    "changes": [
+      "Fixed es! No longer any more cropping! However, there are now large gaps between the sections where there are nested bullet points.",
+      "Fixed render math fonts correctly in exported PDFs."
+    ]
+  },
+  {
     "version": "4.7.6",
     "date": "2026-10-09",
     "changes": []
@@ -68,10 +76,5 @@
       "Added a dropdown menu to the print and export button.",
       "Added a dedicated code font and a ligature toggle. Ligatures are now off by default."
     ]
-  },
-  {
-    "version": "4.3.0",
-    "date": "2026-08-09",
-    "changes": []
   }
 ]
