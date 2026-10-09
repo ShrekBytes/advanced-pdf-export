@@ -529,9 +529,9 @@ export function stripAtFontFaces(css: string): string {
 const CSS_URL_RE = /url\(\s*["']?([^"')]+)["']?\s*\)/g;
 
 /** Returns MathJax CSS with all font url() references replaced by base64 data URIs.
- *  The export BrowserWindow (loaded from a blob: URL) cannot resolve app:// font
- *  paths; inlining makes math characters visible. Falls back to the original URL
- *  on fetch error. */
+ *  The export BrowserWindow (loaded from a blob: URL) cannot resolve relative
+ *  font paths. Read app:// resources in the source window before moving the CSS;
+ *  on fetch error, retain the absolute URL and report the failed resource. */
 export async function getMathJaxCSSInlined(): Promise<string> {
   const css = getMathJaxCSS();
   if (!css) return "";
@@ -545,22 +545,34 @@ export async function getMathJaxCSSInlined(): Promise<string> {
   if (!urlSet.size) return css;
 
   const toDataUri = async (url: string): Promise<string> => {
+    let absoluteURL = url;
     try {
-      const res = await requestUrl(url);
-      if (res.status !== 200) return url;
-      const bytes = new Uint8Array(res.arrayBuffer);
+      // MathJax 4 serves /lib/mathjax/... fonts from Obsidian's app:// origin.
+      absoluteURL = new URL(url, activeDocument.baseURI).href;
+      let buffer: ArrayBuffer;
+      if (/^https?:/i.test(absoluteURL)) {
+        const res = await requestUrl(absoluteURL);
+        if (res.status !== 200) throw new Error(`HTTP ${res.status}`);
+        buffer = res.arrayBuffer;
+      } else {
+        const res = await activeWindow.fetch(absoluteURL);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        buffer = await res.arrayBuffer();
+      }
+      const bytes = new Uint8Array(buffer);
       let bin = "";
       for (let i = 0; i < bytes.length; i += 8192) // chunk to avoid stack overflow
         bin += String.fromCharCode(...bytes.subarray(i, Math.min(i + 8192, bytes.length)));
       const b64  = btoa(bin);
-      const low  = url.toLowerCase();
+      const low  = absoluteURL.toLowerCase();
       const mime = low.includes("woff2") ? "font/woff2"
                  : low.includes("woff")  ? "font/woff"
                  : low.includes(".ttf")  ? "font/ttf"
                  : "font/otf";
       return `data:${mime};base64,${b64}`;
-    } catch {
-      return url;
+    } catch (err) {
+      console.warn("[advanced-pdf-export] failed to inline math font:", absoluteURL, err);
+      return absoluteURL;
     }
   };
 
