@@ -157,7 +157,11 @@ function splitInlineElement(
     if (!forceSplit) return null;
   }
 
-  // Fallback: character-level binary search (oversized single word, or forced).
+  // Fallback: character-level binary search, for an oversized single word that
+  // has no boundary to break at. Only worth it when progress depends on the cut
+  // — a word broken across a page reads as a typo, so cutting one merely to use
+  // up leftover room is worse than letting the item start on the next page.
+  if (!forceSplit) return null;
   let lo = 1, hi = text.length - 1, best = 0;
   while (lo <= hi) {
     const mid = Math.floor((lo + hi) / 2);
@@ -189,7 +193,8 @@ function isListElement(node: Node): boolean {
 }
 
 /**
- * Cuts inside a list's first item, which is too tall to fit a page even alone.
+ * Cuts inside the item at `itemIndex`, which is too tall for the space left on
+ * the page.
  *
  * A list whose only top-level item owns everything below it has no cut point of
  * its own — and that is exactly what any tab-indented outline produces, since
@@ -197,6 +202,14 @@ function isListElement(node: Node): boolean {
  * the item such a list is atomic: it cannot fit and cannot be split, so
  * `paginateEl` places it whole and the page's `overflow: hidden` silently
  * discards everything past the page edge.
+ *
+ * `itemIndex` is 0 when nothing before it could be placed (the page is empty, or
+ * the item alone is taller than a page) and `fitCount` when the earlier items
+ * filled part of the page. In the second case the cut is what keeps the rest of
+ * the page from being wasted: an item boundary alone would leave the leftover
+ * empty, and a nested bullet is a whole subtree, so the hole can be most of a
+ * page — which is the gap issue #55's first fix left behind on every page where
+ * a section of nested bullets ended.
  *
  * Two shapes to cut, depending on where the height is:
  *
@@ -214,24 +227,26 @@ function splitOversizedListItem(
   listEl: HTMLElement,
   items: HTMLElement[],
   existingStart: number,
+  itemIndex: number,
   fits: (node: HTMLElement) => boolean,
   forceSplit: boolean,
 ): [HTMLElement, HTMLElement] | null {
-  const item = items[0];
+  const item = items[itemIndex];
 
-  /** The list as the page holding this item's first half sees it. */
-  const head = (firstItem: HTMLElement): HTMLElement => {
-    const listClone = listEl.cloneNode(false) as HTMLElement;
-    listClone.appendChild(firstItem);
-    return listClone;
-  };
+  /** The list as the page holding this item's first half sees it: the items that
+   *  already fit, whole, then the fragment. */
+  const head = (firstItem: HTMLElement): HTMLElement =>
+    buildListWithItems(listEl, [...items.slice(0, itemIndex), firstItem], existingStart);
   /** The continuation: this item's remainder, then the siblings it used to
-   *  precede. */
-  const tail = (secondItem: HTMLElement): HTMLElement => {
-    const listClone = buildListWithItems(listEl, items.slice(1), existingStart + 1);
-    listClone.insertBefore(secondItem, listClone.firstChild);
-    return listClone;
-  };
+   *  precede. It resumes at the cut item's own number, because the remainder
+   *  takes that number's slot — `list-style: none` hides the marker but the item
+   *  still counts, so starting one later would number the sibling after it wrong. */
+  const tail = (secondItem: HTMLElement): HTMLElement =>
+    buildListWithItems(
+      listEl,
+      [secondItem, ...items.slice(itemIndex + 1)],
+      existingStart + itemIndex,
+    );
 
   const children = Array.from(item.childNodes);
   const nestedIdx = children.findIndex(isListElement);
@@ -267,16 +282,27 @@ function splitOversizedListItem(
     forceSplit,
   );
   if (!nestedSplit) return null;
-  return [head(buildItem(nestedSplit[0], false)), tail(buildItem(nestedSplit[1], true))];
+
+  const firstHalf = buildItem(nestedSplit[0], false);
+  // A nested splitter that had to force progress hands back a fragment its own
+  // `fits` rejected — that is the point of the force-move path. Placing it here
+  // would put a page out that is too tall, and a page clips rather than flows, so
+  // report no cut instead: this level falls back to its own item boundary, which
+  // was measured.
+  if (!fits(head(firstHalf))) return null;
+  return [head(firstHalf), tail(buildItem(nestedSplit[1], true))];
 }
 
 /**
  * Splits a list across a page boundary, at the deepest point it can.
  *
- * Cut points are item boundaries. When the list has no usable one — a single
- * top-level item, or a first item too tall for a whole page — it cuts inside that
- * item instead of giving up, so a list is atomic only when its oversized content
- * has no break point at all (one unbreakable word, an image).
+ * Cut points are item boundaries, and the page is filled up to the one it stops
+ * at by cutting into that item in turn — the leftover an item boundary leaves is
+ * as tall as the item itself, which for a nested bullet is a whole subtree. When
+ * the list has no usable boundary at all — a single top-level item, or a first
+ * item too tall for a whole page — it cuts inside that item instead of giving up,
+ * so a list is atomic only when its oversized content has no break point at all
+ * (one unbreakable word, an image).
  *
  * Exported for direct testing: `fits` is injectable, so the choice of where to
  * cut can be exercised without real layout.
@@ -303,6 +329,13 @@ export function splitListElement(
   }
 
   if (fitCount > 0 && fitCount < items.length) {
+    // The boundary is not the end of it: whatever room is left stays empty, and
+    // with nested bullets the item that follows is a whole subtree, so the hole
+    // can be most of a page. A browser carries that item over and cuts it where
+    // the page ends, so do the same before settling for the boundary.
+    const filled = splitOversizedListItem(listEl, items, existingStart, fitCount, fits, forceSplit);
+    if (filled) return filled;
+
     return [
       buildListWithItems(listEl, items.slice(0, fitCount), existingStart),
       // Second fragment starts at existingStart + fitCount so numbering is continuous.
@@ -318,7 +351,7 @@ export function splitListElement(
   // down, so a half-empty page gets filled instead of flushed and the rest of
   // the list stays reachable. `forceSplit` passes through, so a page with no
   // room for even one nested item still falls through to the flush below.
-  const descended = splitOversizedListItem(listEl, items, existingStart, fits, forceSplit);
+  const descended = splitOversizedListItem(listEl, items, existingStart, 0, fits, forceSplit);
   if (descended) return descended;
 
   // Nothing nested to cut into. Flush a non-empty page and retry the list

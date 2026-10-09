@@ -246,6 +246,100 @@ describe("splitListElement", () => {
   });
 });
 
+describe("splitListElement — the room an item boundary leaves behind", () => {
+  // An item boundary on its own leaves the rest of the page empty, and the item
+  // it stops at can be a whole nested subtree — hundreds of pixels. A browser
+  // carries that item over and cuts it where the page ends, which is what these
+  // cover; without it, every page where a nested section ends has a hole in it.
+  it("cuts into the item the boundary stopped at, filling the page", () => {
+    const list = el("<ul><li>aa</li><li>bb</li><li>cc dd ee ff</li><li>gg</li></ul>");
+    const split = splitListElement(list, fitsUnder(8), false);
+
+    expect(split).not.toBeNull();
+    expect(text(split![0])).toBe("aabbccdd");
+    expect(text(split![1])).toBe("eeffgg");
+  });
+
+  it("falls back to the boundary when the leftover holds less than one word", () => {
+    // No word boundary fits, and the page is not empty, so the inline splitter
+    // reports no cut and the clean item break is the better answer.
+    const list = el("<ul><li>aa</li><li>bb</li><li>xx yy</li><li>zz</li></ul>");
+    const split = splitListElement(list, fitsUnder(5), false);
+
+    expect(split).not.toBeNull();
+    expect(text(split![0])).toBe("aabb");
+    expect(text(split![1])).toBe("xxyyzz");
+  });
+
+  it("does not break a word to fill the leftover", () => {
+    // An item with no break point in it is better left whole on the next page
+    // than split mid-word to use the room up.
+    const list = el("<ul><li>aa</li><li>bb</li><li>zz</li><li>dd</li></ul>");
+    const split = splitListElement(list, fitsUnder(5), false);
+
+    expect(split).not.toBeNull();
+    expect(text(split![0])).toBe("aabb");
+    expect(text(split![1])).toBe("zzdd");
+  });
+
+  it("cuts a nested subtree to fill the page, and re-opens the item on the continuation", () => {
+    const list = el(
+      "<ul><li>aaaa</li><li>bbbb<ul><li>cc dd</li><li>ee ff</li></ul></li><li>gggg</li></ul>",
+    );
+    const split = splitListElement(list, fitsUnder(10), false);
+
+    expect(split).not.toBeNull();
+    expect(text(split![0])).toBe("aaaabbbbcc");
+    expect(text(split![1])).toBe("ddeeffgggg");
+    // The continuation keeps its nesting: the cut item re-opens marker-less with
+    // the rest of its subtree inside it, ahead of the trailing sibling.
+    expect(split![1].querySelectorAll("ul")).toHaveLength(1);
+  });
+
+  it("keeps OL numbering continuous across a filled cut", () => {
+    const list = el("<ol><li>aa</li><li>bb</li><li>cc dd ee</li><li>ff</li></ol>");
+    const split = splitListElement(list, fitsUnder(8), false)!;
+
+    expect(text(split[0])).toBe("aabbccdd");
+    expect(text(split[1])).toBe("eeff");
+    // The cut item was number three, its marker-less remainder takes that slot,
+    // and the sibling after it has to come out as four.
+    expect((split[1] as HTMLOListElement).start).toBe(3);
+  });
+
+  it("resumes at the cut item's number, not one past it, on an empty page", () => {
+    // The descend path has the same shape: the item is cut on a page of its own,
+    // and its marker-less remainder still occupies its number.
+    const list = el('<ol start="5"><li>aa bb cc</li><li>dd</li></ol>');
+    const split = splitListElement(list, fitsUnder(4), true)!;
+
+    expect(text(split[0])).toBe("aabb");
+    expect(text(split[1])).toBe("ccdd");
+    expect((split[1] as HTMLOListElement).start).toBe(5);
+  });
+
+  it("falls back to its own boundary when the descent cannot place anything", () => {
+    // The deepest level has nothing to cut, so it force-moves its first item
+    // forward — a fragment its own `fits` rejects. Placing it would put out a
+    // page taller than a page, which clips, so the cut is refused and the level
+    // above uses the boundary it measured instead.
+    const list = el("<ul><li>aa</li><li>bb<ul><li>cccc</li><li>dddd</li></ul></li><li>ee</li></ul>");
+    const split = splitListElement(list, fitsUnder(4), true)!;
+
+    expect(text(split[0])).toBe("aa");
+    expect(text(split[1])).toBe("bbccccddddee");
+  });
+
+  it("reports no cut rather than place a page it knows is too tall", () => {
+    // Same shape with no boundary anywhere to fall back to: one item owning the
+    // whole chain, and no level able to place even a word of the deepest one.
+    const list = el(
+      "<ul><li>aaaa<ul><li>bbbb<ul><li>cccc</li><li>dddd</li></ul></li></ul></li></ul>",
+    );
+    expect(splitListElement(list, fitsUnder(8), true)).toBeNull();
+  });
+});
+
 describe("splitTableElement", () => {
   it("cuts a multi-row table at a row boundary", () => {
     const table = el(
