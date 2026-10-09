@@ -551,6 +551,7 @@ export async function getMathJaxCSSInlined(): Promise<string> {
       absoluteURL = new URL(url, activeDocument.baseURI).href;
       let buffer: ArrayBuffer;
       if (/^https?:/i.test(absoluteURL)) {
+        // Keep remote fonts CORS-free; renderer fetch is needed for app:// resources.
         const res = await requestUrl(absoluteURL);
         if (res.status !== 200) throw new Error(`HTTP ${res.status}`);
         buffer = res.arrayBuffer;

@@ -60,10 +60,12 @@ describe("getMathJaxCSSInlined font resources", () => {
     expect(localFetch).toHaveBeenCalledWith("app://obsidian.md/lib/font.woff");
   });
 
-  it("loads absolute app font URLs through the host window", async () => {
-    setCSS('@font-face {font-family: Math; src: url("app://obsidian.md/font.ttf")}');
-    expect(await getMathJaxCSSInlined()).toContain("data:font/ttf;base64,AQIDBA==");
-    expect(localFetch).toHaveBeenCalledWith("app://obsidian.md/font.ttf");
+  it("embeds MathJax 3 absolute app font URLs through the host window", async () => {
+    const url = "app://obsidian.md/lib/mathjax/output/chtml/fonts/woff-v2/MathJax_Main-Regular.woff";
+    setCSS(`@font-face {font-family: MJXTEX; src: url("${url}")}`);
+    expect(await getMathJaxCSSInlined()).toContain("data:font/woff;base64,AQIDBA==");
+    expect(localFetch).toHaveBeenCalledWith(url);
+    expect(requestUrl).not.toHaveBeenCalled();
   });
 
   it("keeps CORS-free requestUrl loading for HTTP(S) fonts", async () => {
@@ -101,6 +103,18 @@ describe("getMathJaxCSSInlined font resources", () => {
     setCSS('@font-face {font-family: Math; src: url("https://example.com/font.woff2")}');
     expect(await getMathJaxCSSInlined()).toContain("https://example.com/font.woff2");
     expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("preserves a MathJax 3 absolute app URL when the host fetch rejects", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const url = "app://obsidian.md/lib/mathjax/output/chtml/fonts/woff-v2/MathJax_Main-Regular.woff";
+    localFetch.mockRejectedValue(new Error("Local font unavailable"));
+    setCSS(`@font-face {font-family: MJXTEX; src: url("${url}")}`);
+    expect(await getMathJaxCSSInlined()).toContain(`url("${url}")`);
+    expect(warn).toHaveBeenCalledWith(
+      "[advanced-pdf-export] failed to inline math font:", url, expect.any(Error),
+    );
+    expect(requestUrl).not.toHaveBeenCalled();
   });
 
   it("reports an unsuccessful HTTP font response", async () => {
