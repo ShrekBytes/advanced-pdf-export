@@ -109,6 +109,13 @@ export default class MarkdownPDFPlugin extends Plugin {
       this.settings.tableBorderColor = this.settings.accentColor;
     }
 
+    // Migration: the default table-of-contents heading changed from "Contents".
+    // A saved value equal to the old default adopts the new one; a custom
+    // heading is left untouched.
+    if (data.tocTitle === "Contents") {
+      this.settings.tocTitle = DEFAULT_SETTINGS.tocTitle;
+    }
+
     this.presetSnapshots = data.presetSnapshots ?? {};
     this.lastSeenVersion = data.lastSeenVersion;
     this.validateSettings();
@@ -147,10 +154,24 @@ export default class MarkdownPDFPlugin extends Plugin {
     // Page-number start must be at least 1.
     s.pageNumberStart  = Math.max(1,  s.pageNumberStart);
 
+    // Physical page on which numbering begins must be a real page.
+    s.pageNumberStartPage = Math.max(1, Math.round(s.pageNumberStartPage) || 1);
+
     // Page-number format: fall back to default when cleared.
     if (!s.pageNumberFormat || !s.pageNumberFormat.trim()) {
       s.pageNumberFormat = DEFAULT_SETTINGS.pageNumberFormat;
     }
+
+    // Table-of-contents depth must land on a real heading level.
+    s.tocDepth = Math.min(6, Math.max(1, Math.round(s.tocDepth) || DEFAULT_SETTINGS.tocDepth));
+    s.tocCompactDepth = Math.min(6, Math.max(1, Math.round(s.tocCompactDepth) || DEFAULT_SETTINGS.tocCompactDepth));
+
+    // Table-of-contents typography must remain renderable.
+    s.tocFontSize = Math.max(0.1, s.tocFontSize || DEFAULT_SETTINGS.tocFontSize);
+    s.tocLineHeight = Math.max(0.5, s.tocLineHeight || DEFAULT_SETTINGS.tocLineHeight);
+    s.tocCompactFontSize = Math.max(0.1, s.tocCompactFontSize || DEFAULT_SETTINGS.tocCompactFontSize);
+    s.tocCompactLineHeight = Math.max(0.5, s.tocCompactLineHeight || DEFAULT_SETTINGS.tocCompactLineHeight);
+    s.tocCompactLeaderLength = Math.max(0, s.tocCompactLeaderLength ?? DEFAULT_SETTINGS.tocCompactLeaderLength);
   }
 
   async saveSettings() {

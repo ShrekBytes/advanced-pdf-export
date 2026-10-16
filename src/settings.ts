@@ -59,6 +59,10 @@ export interface PDFExportSettings extends DocStyle {
   showPageNumbers: boolean;
   pageNumberPosition: "center" | "left" | "right";
   pageNumberStart: number;
+  /** Physical page on which page numbering begins, 1-based. Pages before it
+   *  print no page number. Used to exclude leading content such as contents
+   *  pages from the count. */
+  pageNumberStartPage: number;
   /** Template for rendering the page number string. Supports {{current}},
    *  {{total}}, and {{title}} placeholders, e.g. "Page {{current}} of {{total}}". */
   pageNumberFormat: string;
@@ -118,6 +122,30 @@ export interface PDFExportSettings extends DocStyle {
   backgroundImageOpacity: number;
   /** When true, headings H1–H6 are embedded as a bookmark tree in the exported PDF. */
   includeOutline: boolean;
+
+  // ── Table of contents ─────────────────────────────────────────────────────
+  /** Heading printed at the top of a full-page table of contents when the
+   *  marker does not supply one. A compact table of contents prints a heading
+   *  only when its marker supplies one. */
+  tocTitle: string;
+  /** Deepest heading level included in a full-page table of contents, 1–6. */
+  tocDepth: number;
+  /** Full-page table-of-contents font size, as a multiple of the body font size. */
+  tocFontSize: number;
+  /** Full-page table-of-contents line-height multiplier. */
+  tocLineHeight: number;
+  /** When true, each full-page entry prints the page it points to. */
+  tocShowPageNumbers: boolean;
+  /** Deepest heading level included in a compact table of contents, 1–6. */
+  tocCompactDepth: number;
+  /** Compact table-of-contents font size, as a multiple of the body font size. */
+  tocCompactFontSize: number;
+  /** Compact table-of-contents line-height multiplier. */
+  tocCompactLineHeight: number;
+  /** When true, each compact entry prints the page it points to. */
+  tocCompactShowPageNumbers: boolean;
+  /** Minimum length in em of the compact table-of-contents dashed leader after the title. */
+  tocCompactLeaderLength: number;
 
   // ── Save location ──────────────────────────────────────────────────────────
   /** When true, the save dialog opens in the note's own folder with the note's
@@ -326,6 +354,7 @@ export const DEFAULT_SETTINGS: PDFExportSettings = {
   showPageNumbers: true,
   pageNumberPosition: "right",
   pageNumberStart: 1,
+  pageNumberStartPage: 1,
   pageNumberFormat: "{{current}} / {{total}}",
   showHeaderOnFirstPage: true,
   showFooterOnFirstPage: true,
@@ -367,6 +396,17 @@ export const DEFAULT_SETTINGS: PDFExportSettings = {
   backgroundImageOpacity: 1,
   // Outline / bookmarks
   includeOutline: true,
+  // Table of contents
+  tocTitle: "Table of Contents",
+  tocDepth: 3,
+  tocFontSize: 1,
+  tocLineHeight: 1.7,
+  tocShowPageNumbers: true,
+  tocCompactDepth: 3,
+  tocCompactFontSize: 1,
+  tocCompactLineHeight: 1.85,
+  tocCompactShowPageNumbers: true,
+  tocCompactLeaderLength: 2,
   // Save location
   prefillSaveLocation: true,
 };
