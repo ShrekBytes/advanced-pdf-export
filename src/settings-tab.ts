@@ -23,7 +23,7 @@ import { CODE_THEMES } from "./css-builder";
 // value coerced on the way in and out — everything else round-trips as-is.
 const NUMERIC_DROPDOWN_KEYS = new Set([
   "fontSize", "codeFontSize", "lineHeight", "paragraphSpacing", "headingScale",
-  "backgroundImageOpacity",
+  "backgroundImageOpacity", "tocDepth",
 ]);
 
 export class PDFExportSettingTab extends PluginSettingTab {
@@ -320,6 +320,16 @@ export class PDFExportSettingTab extends PluginSettingTab {
         toggle("Striped table rows", "tableStriped"),
         toggle("Include PDF outline (bookmarks)", "includeOutline",
           "Embeds a bookmark tree into the exported PDF. Most PDF readers display it in a side panel for quick navigation."),
+        toggle("Include table of contents page", "includeToc",
+          "Inserts a Contents page listing the headings and their page numbers before the content. Page numbers come from the finished layout, so they match where each heading actually lands."),
+        text("Table of contents title", "tocTitle", {
+          placeholder: "Contents",
+          visible: () => s.includeToc,
+        }),
+        dropdown("Table of contents depth", "tocDepth", {
+          "1": "H1 only", "2": "H1–H2", "3": "H1–H3", "4": "H1–H4", "5": "H1–H5", "6": "H1–H6",
+        }, { visible: () => s.includeToc }),
+        toggle("Show page numbers in table of contents", "tocShowPageNumbers", undefined, () => s.includeToc),
       ]),
 
       // Not a setting — a way back into the release notes after the update

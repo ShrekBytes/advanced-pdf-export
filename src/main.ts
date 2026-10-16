@@ -151,6 +151,9 @@ export default class MarkdownPDFPlugin extends Plugin {
     if (!s.pageNumberFormat || !s.pageNumberFormat.trim()) {
       s.pageNumberFormat = DEFAULT_SETTINGS.pageNumberFormat;
     }
+
+    // Table-of-contents depth must land on a real heading level.
+    s.tocDepth = Math.min(6, Math.max(1, Math.round(s.tocDepth) || DEFAULT_SETTINGS.tocDepth));
   }
 
   async saveSettings() {

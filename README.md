@@ -37,6 +37,7 @@ If this plugin saves you time, consider **[supporting the project](https://shrek
 - **Background** — solid color or a background image with fit, scope (full page or content area only), and opacity controls
 - **Header & footer** — custom text, customizable page numbers (`{{current}}` / `{{total}}` template placeholders), alignment, font size/color, optional banner image, and first-page suppression
 - **PDF outline (bookmarks)** — heading-based bookmark tree embedded in the exported PDF; most PDF readers display it in a side panel
+- **Table of contents page** — optional Contents page listing headings with page numbers taken from the finished layout, so each entry points where the heading actually lands; depth and title are configurable
 - **Print** — send the rendered document straight to any installed printer, or your OS's own "Save as PDF" dialog, via **Export PDF ▾ → Print…**
 
 ## Screenshots
@@ -88,6 +89,8 @@ Search for **Advanced PDF Export** in **Settings → Community Plugins → Brows
 **Render the preview** — click **⟳ Render PDF** or press `Ctrl+Enter` / `Cmd+Enter`.
 
 **Change style or page settings** — use the **Style**, **Size**, and **Orient** dropdowns in the topbar. Changes re-render automatically.
+
+**Add a table of contents** — tick **TOC** in the topbar, or enable **Settings → Behaviour → Include table of contents page**. A Contents page is inserted before the content, listing the headings with their page numbers; title and depth are configurable in settings. Because the entries are numbered from the paginated layout, the Contents is included in the page count it lists.
 
 **Export** — click **⬇ Export PDF** to open a native save dialog and write the PDF to disk. The dialog opens pre-filled in the note's own folder with the note's file name as `.pdf`, so there's nothing to re-pick each time; turn off **Settings → Output → Pre-fill save location** if you'd rather it start from scratch. Click the **▾** next to the button for **Print…**, which sends the document to any installed printer or your OS's own "Save as PDF" dialog instead.
 
@@ -217,6 +220,7 @@ All settings take effect after closing the settings panel.
 | Center H1 | Centers all H1 headings |
 | Striped table rows | Alternating row background on even rows |
 | Include PDF outline (bookmarks) | Embeds a bookmark tree built from headings H1–H6 into the exported PDF; most PDF readers display it in a side panel for quick navigation |
+| Include table of contents page | Inserts a Contents page before the content, listing headings H1–H6 up to the chosen depth with their page numbers. Numbers are read from the paginated layout, so they match where each heading actually lands |
 
 ## What's new
 

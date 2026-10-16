@@ -41,5 +41,12 @@ first. Shown for the version you updated to after an update, and for the ten
 most recent from Settings.
 _Avoid_: update notes, what's new
 
+**Table of contents**:
+The optional Contents page(s) placed before the content, listing headings with
+the page numbers they land on. A visible page, distinct from the PDF *outline*
+(bookmarks), which is the reader's navigation sidebar and has no page of its
+own.
+_Avoid_: index, TOC, outline
+
 The data lives in `src/changelog.json` and the window is
 `ReleaseNotesModal` — implementation names, not domain language.

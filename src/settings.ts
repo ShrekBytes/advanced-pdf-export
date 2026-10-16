@@ -119,6 +119,17 @@ export interface PDFExportSettings extends DocStyle {
   /** When true, headings H1–H6 are embedded as a bookmark tree in the exported PDF. */
   includeOutline: boolean;
 
+  // ── Table of contents ─────────────────────────────────────────────────────
+  /** When true, a Contents page listing the headings and their page numbers is
+   *  generated and placed before the content. */
+  includeToc: boolean;
+  /** Heading shown at the top of the Contents page. */
+  tocTitle: string;
+  /** Deepest heading level included in the Contents page, 1–6. */
+  tocDepth: number;
+  /** When true, each Contents entry prints the page it points to. */
+  tocShowPageNumbers: boolean;
+
   // ── Save location ──────────────────────────────────────────────────────────
   /** When true, the save dialog opens in the note's own folder with the note's
    *  file name pre-filled as ".pdf". Ignored when there is no source note. */
@@ -367,6 +378,11 @@ export const DEFAULT_SETTINGS: PDFExportSettings = {
   backgroundImageOpacity: 1,
   // Outline / bookmarks
   includeOutline: true,
+  // Table of contents
+  includeToc: false,
+  tocTitle: "Contents",
+  tocDepth: 3,
+  tocShowPageNumbers: true,
   // Save location
   prefillSaveLocation: true,
 };

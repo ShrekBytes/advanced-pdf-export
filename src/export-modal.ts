@@ -27,6 +27,7 @@ import {
   paginateEl, buildPageLayouts, extractOutlineEntries, injectPDFOutline, PageLayout,
 } from "./paginator";
 import { pdfFileName, resolveSaveLocation } from "./save-path";
+import { paginateToc } from "./toc";
 
 // ─── Electron type shims ────────────────────────────────────────────────────────
 // Minimal shims — just enough for the PDF export path below.
@@ -87,6 +88,8 @@ interface AppWithSettings {
 // zoom changes can redraw without re-paginating.
 interface LayoutCache {
   layouts: PageLayout[];
+  /** Number of Contents pages prepended to the content, 0 when disabled. */
+  tocPageCount: number;
   pw: number;
   ph: number;
   mTop: number;
@@ -390,6 +393,20 @@ export class PDFExportModal extends Modal {
     breakBtn.title = "Insert page break (///)";
     breakBtn.addEventListener("click", () => this.insertAtCursor("\n///\n"));
 
+    // Quick per-export toggle for the Contents page; the reusable defaults live
+    // in Settings. Checkbox state is written straight to settings, like every
+    // other control in this bar.
+    const tocToggle = left.createEl("label", { cls: "mpdf-ctrl" });
+    tocToggle.title = "Include a table of contents page before the content";
+    const tocCheckbox = tocToggle.createEl("input");
+    tocCheckbox.type = "checkbox";
+    tocCheckbox.checked = s.includeToc;
+    tocToggle.createSpan({ cls: "mpdf-ctrl-label", text: "TOC" });
+    tocCheckbox.addEventListener("change", () => {
+      this.plugin.settings.includeToc = tocCheckbox.checked;
+      void this.plugin.saveSettingsAndRender();
+    });
+
     this.noteTitleEl = left.createDiv({ cls: "mpdf-topbar-title", text: "—" });
 
     this.pageCountEl = right.createSpan({ cls: "mpdf-page-count", text: "— pages" });
@@ -571,11 +588,30 @@ export class PDFExportModal extends Modal {
       if (section.overflowed) overflowed = true;
     }
 
-    const layouts = buildPageLayouts(allPages, s, this.currentFile?.basename ?? "");
-    this.layoutCache = { layouts, pw, ph, mTop, mLeft, mRight, footerH, headerH, contentW, contentH, docCSS: fullCSS, fontFamily: resolveFont(s), accentColor: s.accentColor, pageBackground: s.pageBackground, isRTL };
+    const noteTitle = this.currentFile?.basename ?? "";
+    let pageLayouts = buildPageLayouts(allPages, s, noteTitle);
+
+    // Prepending a Contents page renumbers every content page and every entry
+    // it lists, so the contents is paginated first, then the combined sequence
+    // is laid out and numbered in one pass.
+    let tocPageCount = 0;
+    if (s.includeToc) {
+      const toc = paginateToc(
+        extractOutlineEntries(pageLayouts),
+        { title: s.tocTitle, maxLevel: s.tocDepth, showPageNumbers: s.tocShowPageNumbers },
+        isRTL, contentW, contentH, fullCSS,
+      );
+      if (toc) {
+        if (toc.overflowed) overflowed = true;
+        tocPageCount = toc.tocPages.length;
+        pageLayouts = buildPageLayouts([...toc.tocPages, ...allPages], s, noteTitle);
+      }
+    }
+
+    this.layoutCache = { layouts: pageLayouts, tocPageCount, pw, ph, mTop, mLeft, mRight, footerH, headerH, contentW, contentH, docCSS: fullCSS, fontFamily: resolveFont(s), accentColor: s.accentColor, pageBackground: s.pageBackground, isRTL };
 
     this.drawPreview(this.layoutCache, s.previewScale);
-    this.reportOverflow(overflowed, layouts.length);
+    this.reportOverflow(overflowed, pageLayouts.length);
     this.hideLoading();
   }
 
@@ -828,7 +864,7 @@ export class PDFExportModal extends Modal {
    *  dialog) — they diverge only in what they do with the result. Shows its
    *  own Notice and returns null on failure; callers own the busy state
    *  around the call. */
-  private async buildExportDocument(): Promise<{ fullHTML: string; layouts: PageLayout[] } | null> {
+  private async buildExportDocument(): Promise<{ fullHTML: string; layouts: PageLayout[]; tocPageCount: number } | null> {
     const s = this.plugin.settings;
 
     // Ensure we have a layout — run a full render if the modal was just opened.
@@ -946,7 +982,7 @@ ${pageHTMLParts.join("\n")}
 </body>
 </html>`;
 
-    return { fullHTML, layouts };
+    return { fullHTML, layouts, tocPageCount: cache.tocPageCount };
   }
 
   /** Creates a hidden BrowserWindow, loads fullHTML into it via a blob: URL,
@@ -997,7 +1033,7 @@ ${pageHTMLParts.join("\n")}
 
     const built = await this.buildExportDocument();
     if (!built) { this.setExportBusy(null); return; }
-    const { fullHTML, layouts } = built;
+    const { fullHTML, layouts, tocPageCount } = built;
 
     try {
       // Obsidian uses @electron/remote; the legacy `electron.remote` property is
@@ -1055,7 +1091,13 @@ ${pageHTMLParts.join("\n")}
         // printToPDF produces a flat PDF with no outline; inject one via pdf-lib.
         if (s.includeOutline) {
           try {
-            data = await injectPDFOutline(data, extractOutlineEntries(layouts));
+            const entries = extractOutlineEntries(layouts);
+            // The Contents page is generated, not an h1/h2, so it is not picked
+            // up by extractOutlineEntries — add a leading bookmark for it.
+            if (tocPageCount > 0) {
+              entries.unshift({ title: s.tocTitle.trim() || "Contents", level: 1, page: 1 });
+            }
+            data = await injectPDFOutline(data, entries);
           } catch (outlineErr) {
             console.warn("[advanced-pdf-export] outline injection failed:", outlineErr);
           }
