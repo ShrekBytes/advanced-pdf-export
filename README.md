@@ -224,7 +224,7 @@ All settings take effect after closing the settings panel.
 
 ### Table of Contents
 
-A table of contents is inserted with a marker on its own line, not with a global switch. Markers are case-sensitive and must start at the beginning of a line.
+A table of contents is inserted with a marker on its own line, not with a global switch. Markers are case-sensitive and must start at the beginning of a line. Entries link to their heading, indent by the heading levels present in the scope, and print page numbers only while the footer's **Show page numbers** setting is enabled.
 
 | Marker | Result |
 |---|---|
@@ -234,8 +234,6 @@ A table of contents is inserted with a marker on its own line, not with a global
 | `{{toc_compact}}` | Compact contents that flows with the text; covers the first heading below the marker and its descendants up to the next heading at the same or a higher level |
 | `{{toc_compact_N}}` | Compact contents listing the next `N` headings below the marker |
 | `{{toc_compact:Title}}` | Compact contents under a custom heading |
-
-Counts and titles combine, e.g. `{{toc_5:Contents}}` or `{{toc_compact_3:In this section}}`. Entries are clickable and jump to their heading. Indentation is relative to the scope, not to the absolute heading number: the shallowest level present is flush left and each further level present is indented once, so a scope holding only H2 and H6 indents the H6 once. Contents page numbers are printed only while the footer's **Show page numbers** setting is enabled.
 
 | Setting | Description |
 |---|---|
