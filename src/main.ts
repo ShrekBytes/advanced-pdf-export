@@ -109,13 +109,6 @@ export default class MarkdownPDFPlugin extends Plugin {
       this.settings.tableBorderColor = this.settings.accentColor;
     }
 
-    // Migration: the default table-of-contents heading changed from "Contents".
-    // A saved value equal to the old default adopts the new one; a custom
-    // heading is left untouched.
-    if (data.tocTitle === "Contents") {
-      this.settings.tocTitle = DEFAULT_SETTINGS.tocTitle;
-    }
-
     this.presetSnapshots = data.presetSnapshots ?? {};
     this.lastSeenVersion = data.lastSeenVersion;
     this.validateSettings();
