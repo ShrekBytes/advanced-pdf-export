@@ -37,7 +37,7 @@ If this plugin saves you time, consider **[supporting the project](https://shrek
 - **Background** — solid color or a background image with fit, scope (full page or content area only), and opacity controls
 - **Header & footer** — custom text, customizable page numbers (`{{current}}` / `{{total}}` template placeholders), alignment, font size/color, optional banner image, and first-page suppression
 - **PDF outline (bookmarks)** — heading-based bookmark tree embedded in the exported PDF; most PDF readers display it in a side panel
-- **Table of contents page** — optional Contents page listing headings with page numbers taken from the finished layout, so each entry points where the heading actually lands; depth and title are configurable
+- **Table of contents** — insert `{{toc}}` on its own line for a full-page contents, or `{{toc_compact}}` for a compact contents that flows with the text; entries use the page numbers from the finished layout, are clickable internal links, and both forms accept an explicit entry count and heading
 - **Print** — send the rendered document straight to any installed printer, or your OS's own "Save as PDF" dialog, via **Export PDF ▾ → Print…**
 
 ## Screenshots
@@ -90,7 +90,7 @@ Search for **Advanced PDF Export** in **Settings → Community Plugins → Brows
 
 **Change style or page settings** — use the **Style**, **Size**, and **Orient** dropdowns in the topbar. Changes re-render automatically.
 
-**Add a table of contents** — tick **TOC** in the topbar, or enable **Settings → Behaviour → Include table of contents page**. A Contents page is inserted before the content, listing the headings with their page numbers; title and depth are configurable in settings. Because the entries are numbered from the paginated layout, the Contents is included in the page count it lists.
+**Add a table of contents** — place `{{toc}}` on its own line where a full-page contents should appear, or `{{toc_compact}}` for a compact contents that flows with the surrounding text. Both list the headings below the marker with the page numbers they land on, and each entry is a link that jumps to its heading. Append a count to limit the entries (`{{toc_5}}`, `{{toc_compact_3}}`), or a colon and text to override the heading (`{{toc:Contents}}`, `{{toc_compact:In this section}}`). A full-page contents starts on a new page and the content resumes on a new page after it; a compact contents sits in the text flow and prints no heading unless its marker supplies one. Markers are case-sensitive and must start at the beginning of a line.
 
 **Export** — click **⬇ Export PDF** to open a native save dialog and write the PDF to disk. The dialog opens pre-filled in the note's own folder with the note's file name as `.pdf`, so there's nothing to re-pick each time; turn off **Settings → Output → Pre-fill save location** if you'd rather it start from scratch. Click the **▾** next to the button for **Print…**, which sends the document to any installed printer or your OS's own "Save as PDF" dialog instead.
 
@@ -186,7 +186,7 @@ All settings take effect after closing the settings panel.
 | Setting | Description |
 |---|---|
 | Show footer | Toggle the footer on or off |
-| Show on first page | When off, the footer and page numbers are hidden on page 1; numbering starts from page 2 |
+| Show on first page | When off, the footer and page numbers are hidden on page 1; numbering starts from page 2 unless a later start page is set |
 | Footer text | Custom text shown in the footer |
 | Alignment | Left, Center, or Right |
 | Font size | Footer text size in px |
@@ -198,7 +198,8 @@ All settings take effect after closing the settings panel.
 | Show page numbers | Toggle *Page X / Y* display |
 | Page number position | Left, Center, or Right |
 | Page number format | Custom template using `{{current}}`, `{{total}}`, and `{{title}}` (the note's title) placeholders, e.g. `Page {{current}} of {{total}}`, `{{title}} — {{current}}/{{total}}`, or just `{{current}}` (default: `{{current}} / {{total}}`) |
-| Page number start | Number assigned to the first visible page number (default 1) |
+| Page number start | Number assigned to the first numbered page (default 1) |
+| Page numbering starts at page | Physical page on which the first number appears; pages before it print no number. Set this past the contents pages to start the body at 1 (default 1) |
 
 ### Output
 
@@ -220,7 +221,32 @@ All settings take effect after closing the settings panel.
 | Center H1 | Centers all H1 headings |
 | Striped table rows | Alternating row background on even rows |
 | Include PDF outline (bookmarks) | Embeds a bookmark tree built from headings H1–H6 into the exported PDF; most PDF readers display it in a side panel for quick navigation |
-| Include table of contents page | Inserts a Contents page before the content, listing headings H1–H6 up to the chosen depth with their page numbers. Numbers are read from the paginated layout, so they match where each heading actually lands |
+
+### Table of Contents
+
+A table of contents is inserted with a marker on its own line, not with a global switch. Markers are case-sensitive and must start at the beginning of a line. Entries link to their heading, indent by the heading levels present in the scope, and print page numbers only while the footer's **Show page numbers** setting is enabled.
+
+| Marker | Result |
+|---|---|
+| `{{toc}}` | Full-page contents: page break before and after, listing the whole document |
+| `{{toc_N}}` | Full-page contents listing the next `N` headings below the marker |
+| `{{toc:Title}}` | Full-page contents under a custom heading |
+| `{{toc_compact}}` | Compact contents that flows with the text; covers the first heading below the marker and its descendants up to the next heading at the same or a higher level |
+| `{{toc_compact_N}}` | Compact contents listing the next `N` headings below the marker |
+| `{{toc_compact:Title}}` | Compact contents under a custom heading |
+
+| Setting | Description |
+|---|---|
+| Heading | Default heading shown above a full-page `{{toc}}` unless a marker overrides it (default: `Table of Contents`). A compact contents prints a heading only when its marker supplies one |
+| Full-page TOC index depth | Deepest heading level listed by a full-page `{{toc}}`; ignored when the marker specifies an explicit entry count |
+| Full-page TOC font size | Full-page contents font size, as a multiple of the body font size |
+| Full-page TOC line height | Full-page contents line-height multiplier |
+| Full-page TOC: show page numbers | Print the resolved page number beside each full-page entry |
+| Compact TOC index depth | Deepest heading level listed by a compact `{{toc_compact}}`; ignored when the marker specifies an explicit entry count |
+| Compact TOC font size | Compact contents font size, as a multiple of the body font size |
+| Compact TOC line height | Compact contents line-height multiplier; also the height of the blank line around it |
+| Compact TOC: show page numbers | Print the resolved page number beside each compact entry |
+| Compact TOC leader length | Minimum length of the dashed leader in a compact contents; the leader starts after the title and stops at the page-number column |
 
 ## What's new
 
