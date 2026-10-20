@@ -18,9 +18,40 @@ export function normalizeMarkdown(raw: string): string {
   return raw.replace(/\r\n|\r/g, "\n");
 }
 
+// Opening YAML frontmatter block, up to and including its closing delimiter
+// and the newline that follows it. Input must be LF-normalised.
+const FRONTMATTER_BLOCK = /^---[ \t]*\n([\s\S]*?)\n---[ \t]*(?:\n|$)/;
+
 /** Strips an opening YAML frontmatter block (--- … ---). Input must be LF-normalised. */
 export function stripFrontmatter(md: string): string {
-  return md.replace(/^---[ \t]*\n[\s\S]*?\n---[ \t]*(\n|$)/, "");
+  return md.replace(FRONTMATTER_BLOCK, "");
+}
+
+/**
+ * Turns an opening YAML frontmatter block (--- … ---) into a fenced `yaml`
+ * code block. Input must be LF-normalised. Returns the input unchanged when
+ * there is no block.
+ *
+ * Obsidian's MarkdownRenderer does render frontmatter — as a `.frontmatter`
+ * `<pre>` — but one of its own post-processors hides that element, so passing
+ * the raw block through makes it disappear. Re-fencing it as ordinary code
+ * keeps the contents visible, both in the preview and in the PDF.
+ *
+ * The fence must be longer than any backtick run that starts a line in the
+ * body, or that line would close the block early.
+ */
+export function frontmatterAsCodeBlock(md: string): string {
+  const match = FRONTMATTER_BLOCK.exec(md);
+  if (!match) return md;
+
+  let longestRun = 0;
+  for (const line of match[1].split("\n")) {
+    const run = /^ {0,3}(`{3,})/.exec(line)?.[1].length ?? 0;
+    longestRun = Math.max(longestRun, run);
+  }
+  const fence = "`".repeat(Math.max(3, longestRun + 1));
+
+  return `${fence}yaml\n${match[1]}\n${fence}\n${md.slice(match[0].length)}`;
 }
 
 /** Splits on `///` manual page-break markers, trimming and dropping empty sections. */

@@ -20,8 +20,8 @@ import {
   getMathJaxCSSInlined, waitForMathJaxStylesheetStable,
 } from "./css-builder";
 import {
-  normalizeMarkdown, stripFrontmatter, stripCommentLines, splitMarkdownSections,
-  isRTLContent, renderMarkdownToEl,
+  normalizeMarkdown, stripFrontmatter, frontmatterAsCodeBlock, stripCommentLines,
+  splitMarkdownSections, isRTLContent, renderMarkdownToEl,
 } from "./markdown";
 import {
   paginateEl, buildPageLayouts, extractOutlineEntries, injectPDFOutline, PageLayout,
@@ -513,6 +513,8 @@ export class PDFExportModal extends Modal {
 
     if (s.hideFrontmatter) {
       md = stripFrontmatter(md);
+    } else {
+      md = frontmatterAsCodeBlock(md);
     }
 
     // Drop comment-only lines before rendering: inside a paragraph Obsidian

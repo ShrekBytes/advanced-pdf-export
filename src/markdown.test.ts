@@ -1,7 +1,9 @@
 // @vitest-environment happy-dom
 
 import { describe, it, expect } from "vitest";
-import { removeEmptyBlocks, stripCommentLines } from "./markdown";
+import {
+  frontmatterAsCodeBlock, removeEmptyBlocks, stripCommentLines, stripFrontmatter,
+} from "./markdown";
 
 // These fixtures are hand-written from Obsidian's reported output shape, not
 // captured from a live render — this repo cannot run Obsidian's MarkdownRenderer.
@@ -150,5 +152,46 @@ describe("stripCommentLines", () => {
 
   it("drops an empty comment line", () => {
     expect(stripCommentLines("a\n%%%%\nb")).toBe("a\nb");
+  });
+});
+
+// The toggle's two branches. stripFrontmatter removes the block when it is
+// hidden; frontmatterAsCodeBlock re-fences it when it should be shown.
+describe("stripFrontmatter", () => {
+  it("removes the opening frontmatter block", () => {
+    expect(stripFrontmatter("---\na: b\n---\nBody")).toBe("Body");
+  });
+
+  it("leaves a horizontal rule later in the note alone", () => {
+    expect(stripFrontmatter("Intro\n\n---\n")).toBe("Intro\n\n---\n");
+  });
+});
+
+// The raw frontmatter block would be hidden by Obsidian's renderer, so the
+// "Hide frontmatter" toggle being off re-fences it as ordinary code instead.
+describe("frontmatterAsCodeBlock", () => {
+  it("turns the opening frontmatter block into a yaml code block", () => {
+    expect(frontmatterAsCodeBlock("---\nauthor: Company Name\n---\n# Title\n"))
+      .toBe("```yaml\nauthor: Company Name\n```\n# Title\n");
+  });
+
+  it("keeps the YAML body verbatim, including comments and blank lines", () => {
+    const body = "title: Note\n# a comment\n\ntags:\n  - one\n  - two";
+    expect(frontmatterAsCodeBlock(`---\n${body}\n---\nBody`))
+      .toBe(`\`\`\`yaml\n${body}\n\`\`\`\nBody`);
+  });
+
+  it("adds a newline when the block ends the document", () => {
+    expect(frontmatterAsCodeBlock("---\na: b\n---")).toBe("```yaml\na: b\n```\n");
+  });
+
+  it("leaves markdown without frontmatter alone", () => {
+    const md = "Intro\n\n---\na: b\n---\n";
+    expect(frontmatterAsCodeBlock(md)).toBe(md);
+  });
+
+  it("uses a fence longer than any backtick run in the YAML", () => {
+    expect(frontmatterAsCodeBlock("---\nkey: |\n  ```\n---\nbody"))
+      .toBe("````yaml\nkey: |\n  ```\n````\nbody");
   });
 });

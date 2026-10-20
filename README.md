@@ -207,7 +207,7 @@ All settings take effect after closing the settings panel.
 
 | Setting | Description |
 |---|---|
-| Hide frontmatter | Strip the YAML frontmatter block (`--- … ---`) from preview and PDF |
+| Hide frontmatter | Strip the YAML frontmatter block (`--- … ---`) from preview and PDF; when off, show it as a YAML code block |
 | Include file name as title | Prepends the note's filename as an H1 at the top of the PDF |
 | Underline links | Applies to both internal and external links |
 | Auto page break before H1 | Inserts a page break before every `#` heading |
