@@ -155,9 +155,11 @@ function slugifyHeading(text: string): string {
 // callouts, strips top-level theme <style>/<script> injections while
 // preserving styles embedded inside SVGs (mermaid stores its theme CSS there),
 // and drops blocks that rendered empty (handled by removeEmptyBlocks below).
-function postProcessRenderedHTML(root: HTMLElement): void {
+function postProcessRenderedHTML(root: HTMLElement, seen: Map<string, number> = new Map()): void {
   // Stable, deduplicated IDs so in-page anchor links work across shadow DOMs.
-  const seen = new Map<string, number>();
+  // The map may be shared across sections so IDs stay document-unique. When it
+  // is, a heading repeated in two sections gets a distinct -1, -2, ... suffix,
+  // which is what lets a contents entry link to the right one.
   root.querySelectorAll("h1,h2,h3,h4,h5,h6").forEach((el) => {
     const text = el.textContent || "";
     const base = slugifyHeading(text);
@@ -327,6 +329,7 @@ export async function renderMarkdownToEl(
   markdown: string,
   sourcePath: string,
   component: Component,
+  seenHeadingIds?: Map<string, number>,
 ): Promise<HTMLElement> {
   const temp = createDiv();
   // Attached offscreen so Obsidian's async post-processors (mermaid, math) run in a real DOM context.
@@ -363,7 +366,7 @@ export async function renderMarkdownToEl(
   } finally {
     activeDocument.body.removeChild(temp);
   }
-  postProcessRenderedHTML(temp);
+  postProcessRenderedHTML(temp, seenHeadingIds);
   return temp;
 }
 

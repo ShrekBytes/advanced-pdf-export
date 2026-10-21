@@ -17,13 +17,21 @@ import { PDFExportSettings } from "./settings";
 export interface OutlineEntry {
   title: string;
   level: number; // 1–6 matching H1–H6
-  page:  number; // 1-indexed page number in the exported PDF
+  page:  number; // 1-indexed physical page number in the exported PDF
+  /** Display page number for the table of contents, or "" when the page
+   *  carries no number (before the configured numbering start page). */
+  label: string;
+  /** Document-unique id of the heading element, used to link a contents entry
+   *  to its target page within the PDF. Absent when the heading has no id. */
+  id?: string;
 }
 
 export interface PageLayout {
   pageNodes: HTMLElement[];
   pageNum: number;
   totalPages: number;
+  /** Page number as printed in the footer, or "" when the page is unnumbered. */
+  displayPageLabel: string;
   pageShowsHeader: boolean;
   pageShowsFooter: boolean;
   hasHeader: boolean;
@@ -707,11 +715,54 @@ function isInlineSplitCandidate(el: HTMLElement): boolean {
   return true;
 }
 
+/** Splits a generated table-of-contents block (marked with the `mpdf-toc`
+ *  class) at its top-level child boundaries — a title or one contents row — so a
+ *  long contents flows onto the next page instead of being treated as an atomic
+ *  block and clipped.
+ *
+ *  The boundary between fragments is also where the block's interior spacing
+ *  collapses: the fragment that continues onto the next page carries no leading
+ *  margin, and the fragment it continues from carries no trailing margin, so the
+ *  page break does not introduce a doubled gap. */
+function splitContainerElement(
+  containerEl: HTMLElement,
+  fits: (node: HTMLElement) => boolean,
+  forceSplit: boolean,
+): [HTMLElement, HTMLElement] | null {
+  const children = Array.from(containerEl.children) as HTMLElement[];
+  if (children.length < 2) return null;
+
+  const build = (slice: HTMLElement[], continuation: boolean): HTMLElement => {
+    const clone = containerEl.cloneNode(false) as HTMLElement;
+    if (continuation) clone.setCssStyles({ marginTop: "0" });
+    else              clone.setCssStyles({ marginBottom: "0" });
+    for (const child of slice) clone.appendChild(child.cloneNode(true));
+    return clone;
+  };
+
+  let fitCount = 0;
+  for (let i = 0; i < children.length; i++) {
+    if (fits(build(children.slice(0, i + 1), false))) fitCount = i + 1;
+    else break;
+  }
+  if (fitCount >= children.length) return null;
+
+  if (fitCount > 0) {
+    return [build(children.slice(0, fitCount), false), build(children.slice(fitCount), true)];
+  }
+
+  // Nothing fits: on a page with room left, flush it and retry against a full
+  // one; otherwise force one child forward so the remainder stays reachable.
+  if (!forceSplit) return null;
+  return [build(children.slice(0, 1), false), build(children.slice(1), true)];
+}
+
 function splitElement(
   el: HTMLElement,
   fits: (node: HTMLElement) => boolean,
   forceSplit: boolean,
 ): [HTMLElement, HTMLElement] | null {
+  if (el.classList.contains("mpdf-toc")) return splitContainerElement(el, fits, forceSplit);
   if (UNSPLITTABLE_TAGS.has(el.tagName)) return null;
   if (el.tagName === "PRE")   return splitPreElement(el, fits, forceSplit);
   if (el.tagName === "TABLE") return splitTableElement(el as HTMLTableElement, fits, forceSplit);
@@ -865,15 +916,26 @@ function resolvePageNumberFormat(format: string, current: number, total: number,
  *  noteTitle backs the {{title}} placeholder in pageNumberFormat. */
 export function buildPageLayouts(allPages: HTMLElement[][], s: PDFExportSettings, noteTitle: string): PageLayout[] {
   const totalPages = allPages.length;
+
+  // The first page that carries a page number. Hiding the footer on the first
+  // page (title-page style) implies numbering begins on page 2; the explicit
+  // start page can push that later, which is how leading contents pages are
+  // excluded from the count.
+  const startPage = Math.max(s.pageNumberStartPage, s.showFooterOnFirstPage ? 1 : 2);
+  const numberedPageCount = Math.max(0, totalPages - startPage + 1);
+  const displayTotal = s.pageNumberStart + numberedPageCount - 1;
+
   return allPages.map((pageNodes, i) => {
     const pageNum = i + 1;
     const pageShowsHeader = s.showHeaderOnFirstPage || i > 0;
     const pageShowsFooter = s.showFooterOnFirstPage || i > 0;
 
-    // Page-number offset: when footer is hidden on page 1 the numbering shifts by 1.
-    const displayNum   = s.showFooterOnFirstPage ? s.pageNumberStart + i       : s.pageNumberStart + (i - 1);
-    const displayTotal = s.showFooterOnFirstPage ? s.pageNumberStart + totalPages - 1 : s.pageNumberStart + totalPages - 2;
-    const numStr = resolvePageNumberFormat(s.pageNumberFormat, displayNum, displayTotal, noteTitle);
+    const numbered = pageNum >= startPage;
+    const displayNum = numbered ? s.pageNumberStart + (pageNum - startPage) : null;
+    const displayPageLabel = displayNum !== null ? String(displayNum) : "";
+    const numStr = displayNum !== null
+      ? resolvePageNumberFormat(s.pageNumberFormat, displayNum, displayTotal, noteTitle)
+      : "";
 
     let footerLeft = "", footerRight = "", footerCenter = "";
     let headerLeft = "", headerCenter = "", headerRight = "";
@@ -885,7 +947,7 @@ export function buildPageLayouts(allPages: HTMLElement[][], s: PDFExportSettings
         else                                          footerRight  = s.footerText;
       }
       // Place page number in its own zone; merge with a separator when both land in the same slot.
-      if (s.showPageNumbers) {
+      if (s.showPageNumbers && numbered) {
         const join = (existing: string) => existing ? existing + " — " + numStr : numStr;
         if      (s.pageNumberPosition === "center") footerCenter = join(footerCenter);
         else if (s.pageNumberPosition === "left")   footerLeft   = join(footerLeft);
@@ -910,7 +972,7 @@ export function buildPageLayouts(allPages: HTMLElement[][], s: PDFExportSettings
     const hasHeader = s.showHeader && pageShowsHeader && !!(headerLeft || headerCenter || headerRight || s.showHeaderBorder);
     const hasFooter = s.showFooter && pageShowsFooter && !!(footerLeft || footerRight || footerCenter || s.showFooterBorder);
 
-    return { pageNodes, pageNum, totalPages, pageShowsHeader, pageShowsFooter, hasHeader, hasFooter, headerLeft, headerCenter, headerRight, footerLeft, footerRight, footerCenter };
+    return { pageNodes, pageNum, totalPages, displayPageLabel, pageShowsHeader, pageShowsFooter, hasHeader, hasFooter, headerLeft, headerCenter, headerRight, footerLeft, footerRight, footerCenter };
   });
 }
 
@@ -933,7 +995,7 @@ export function extractOutlineEntries(layouts: PageLayout[]): OutlineEntry[] {
       for (const el of [...topLevel, ...nested]) {
         const level = parseInt(el.tagName[1], 10);
         const title = (el.textContent ?? "").trim();
-        if (title) entries.push({ title, level, page: layout.pageNum });
+        if (title) entries.push({ title, level, page: layout.pageNum, label: layout.displayPageLabel, id: el.id || undefined });
       }
     }
   }

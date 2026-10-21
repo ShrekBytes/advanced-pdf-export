@@ -41,5 +41,21 @@ first. Shown for the version you updated to after an update, and for the ten
 most recent from Settings.
 _Avoid_: update notes, what's new
 
+**Table of contents**:
+A contents block inserted where the author places a `{{toc}}` or
+`{{toc_compact}}` marker, listing headings with the page numbers they land on
+and linking each entry to its heading. The full-page form occupies whole pages
+and prints the configured default heading; the compact form flows with the text
+and prints a heading only when its marker supplies one. Both are visible
+content, distinct from the PDF *outline* (bookmarks), which is the reader's
+navigation sidebar and has no page of its own.
+_Avoid_: index, outline, contents page
+
+**Numbering start page**:
+The physical page on which page numbering begins. Pages before it carry no page
+number, which is how leading contents pages are excluded from the count and the
+body starts at the configured first number.
+_Avoid_: page offset, number offset
+
 The data lives in `src/changelog.json` and the window is
 `ReleaseNotesModal` — implementation names, not domain language.

@@ -24,9 +24,14 @@ import {
   splitMarkdownSections, isRTLContent, renderMarkdownToEl,
 } from "./markdown";
 import {
-  paginateEl, buildPageLayouts, extractOutlineEntries, injectPDFOutline, PageLayout,
+  paginateEl, buildPageLayouts, extractOutlineEntries, injectPDFOutline, OutlineEntry, PageLayout,
 } from "./paginator";
 import { pdfFileName, resolveSaveLocation } from "./save-path";
+import {
+  buildTocElement, collectBookmarkEntries, parseTocAnchor, replaceTocMarkers,
+  resolveTocPageNumberVisibility, selectTocEntries, splitSectionAtFullToc,
+  TocMarkerSpec, TocSettings,
+} from "./toc";
 
 // ─── Electron type shims ────────────────────────────────────────────────────────
 // Minimal shims — just enough for the PDF export path below.
@@ -87,6 +92,11 @@ interface AppWithSettings {
 // zoom changes can redraw without re-paginating.
 interface LayoutCache {
   layouts: PageLayout[];
+  /** Parsed table-of-contents markers, in document order, and the settings
+   *  used to render them. Retained so the export path can build bookmarks for
+   *  full-page contents without re-parsing the source. */
+  tocSpecs: TocMarkerSpec[];
+  tocSettings: TocSettings;
   pw: number;
   ph: number;
   mTop: number;
@@ -178,6 +188,223 @@ function resolveActiveMarkdownFile(app: App, initialFile?: TFile | null): TFile 
   if (leaf?.view instanceof MarkdownView) return leaf.view.file ?? null;
 
   return null;
+}
+
+// ─── Table-of-contents layout ────────────────────────────────────────────────
+// A contents block is generated, not authored: its entries and their page
+// numbers are only known once the document has been paginated. Each marker is
+// therefore anchored in the rendered DOM and replaced on every pass, so the
+// contents and the page numbers it reports settle together.
+
+interface TocAnchorRef {
+  spec: TocMarkerSpec;
+  /** Index, in document heading order, of the first heading below the marker. */
+  firstHeadingIndex: number;
+  /** Current node occupying the marker's position; the anchor paragraph on the
+   *  first pass, the generated contents block afterwards. */
+  node: HTMLElement;
+  /** Top-level section element that owns the anchor, so a section left empty by
+   *  a skipped contents can be dropped. */
+  sectionEl: HTMLElement;
+}
+
+interface TocContext {
+  anchors: Map<number, TocAnchorRef>;
+  /** Headings in document order, without page numbers. Selection depends only
+   *  on the order and levels, so this is enough to decide whether a marker is
+   *  empty before any pagination happens. */
+  headingOutline: OutlineEntry[];
+}
+
+/** Walks the rendered sections in document order, recording where each marker
+ *  sits relative to the heading sequence. Computed once: a generated contents
+ *  introduces no headings, so the mapping is stable across passes. */
+function collectTocAnchors(
+  sectionEls: HTMLElement[],
+  specs: TocMarkerSpec[],
+): TocContext {
+  const anchors = new Map<number, TocAnchorRef>();
+  const headingOutline: OutlineEntry[] = [];
+
+  for (const sectionEl of sectionEls) {
+    const walker = activeDocument.createTreeWalker(sectionEl, NodeFilter.SHOW_ELEMENT);
+    let el = walker.nextNode() as HTMLElement | null;
+    while (el) {
+      if (/^H[1-6]$/.test(el.tagName)) {
+        headingOutline.push({
+          title: (el.textContent ?? "").trim(),
+          level: parseInt(el.tagName[1], 10),
+          page: 0,
+          label: "",
+        });
+      } else if (el.tagName === "P") {
+        const anchor = parseTocAnchor(el.textContent ?? "");
+        if (anchor && specs[anchor.id]) {
+          anchors.set(anchor.id, {
+            spec: specs[anchor.id],
+            firstHeadingIndex: headingOutline.length,
+            node: el,
+            sectionEl,
+          });
+        }
+      }
+      el = walker.nextNode() as HTMLElement | null;
+    }
+  }
+  return { anchors, headingOutline };
+}
+
+/** Removes markers that select no heading: a contents with no entries is not
+ *  rendered. A full-page marker owns its section, so that section is dropped
+ *  too, which is what keeps the skip from leaving a blank page. */
+function discardEmptyTocMarkers(
+  context: TocContext,
+  specs: TocMarkerSpec[],
+  settings: TocSettings,
+  sectionEls: HTMLElement[],
+): TocMarkerSpec[] {
+  const active: TocMarkerSpec[] = [];
+  for (const spec of specs) {
+    const ref = context.anchors.get(spec.id);
+    if (!ref) {
+      active.push(spec);
+      continue;
+    }
+    const entries = selectTocEntries(
+      context.headingOutline, spec, ref.firstHeadingIndex,
+      spec.kind === "full" ? settings.fullDepth : settings.compactDepth,
+    );
+    if (entries.length > 0) {
+      active.push(spec);
+      continue;
+    }
+
+    ref.node.remove();
+    context.anchors.delete(spec.id);
+    if (ref.sectionEl.children.length === 0) {
+      const index = sectionEls.indexOf(ref.sectionEl);
+      if (index >= 0) sectionEls.splice(index, 1);
+    }
+  }
+  return active;
+}
+
+/** Swaps the node at a marker's position for the freshly generated block. */
+function substituteTocAnchor(ref: TocAnchorRef, element: HTMLElement): void {
+  const parent = ref.node.parentElement;
+  if (!parent) return;
+  parent.replaceChild(element, ref.node);
+  ref.node = element;
+}
+
+/** Removes the leading blank line from a compact contents that opens a page: the
+ *  separation belongs between blocks, not at the top of a page. */
+function collapseCompactTocLeadingMargins(pages: HTMLElement[][]): void {
+  for (const page of pages) {
+    const first = page[0];
+    if (first?.classList.contains("mpdf-toc-compact")) first.style.marginTop = "0";
+  }
+}
+
+/** Removes any anchor paragraph not consumed during solving. This is a safety
+ *  net: if an anchor could not be matched to a marker it would otherwise print
+ *  its opaque token text into the document. */
+function removeResidualTocAnchors(sectionEls: HTMLElement[]): void {
+  for (const sectionEl of sectionEls) {
+    sectionEl.querySelectorAll("p").forEach((paragraph) => {
+      if (parseTocAnchor(paragraph.textContent ?? "")) paragraph.remove();
+    });
+  }
+}
+
+interface TocLayoutResult {
+  layouts: PageLayout[];
+  overflowed: boolean;
+}
+
+/** Paginates every section in document order into one flat page list. */
+function paginateSections(
+  sectionEls: HTMLElement[],
+  contentW: number,
+  contentH: number,
+  docCSS: string,
+): { pages: HTMLElement[][]; overflowed: boolean } {
+  const pages: HTMLElement[][] = [];
+  let overflowed = false;
+  for (const sectionEl of sectionEls) {
+    const result = paginateEl(sectionEl, contentW, contentH, docCSS);
+    pages.push(...result.pages);
+    if (result.overflowed) overflowed = true;
+  }
+  return { pages, overflowed };
+}
+
+/** Paginates the sections and resolves every contents marker against the
+ *  pagination, iterating until the heading page numbers stop changing.
+ *
+ *  One pass is not sufficient because a generated contents occupies space that
+ *  shifts the headings after it, and the numbers it prints depend on where
+ *  those headings land. The number of contents pages is part of that shift, so
+ *  the two are solved together; the loop is bounded to keep a pathologically
+ *  nested document from spinning. */
+function solveTocLayouts(
+  sectionEls: HTMLElement[],
+  anchors: Map<number, TocAnchorRef>,
+  specs: TocMarkerSpec[],
+  settings: TocSettings,
+  isRTL: boolean,
+  contentW: number,
+  contentH: number,
+  docCSS: string,
+  pageSettings: PDFExportSettings,
+  noteTitle: string,
+): TocLayoutResult {
+  const MAX_PASSES = 6;
+  let previousSignature: string | null = null;
+  let layouts: PageLayout[] = [];
+  let overflowed = false;
+
+  // Without markers there is nothing to solve, so a single pass is enough and
+  // the second measurement the fixed-point loop would take is avoided.
+  if (specs.length === 0) {
+    const pages = paginateSections(sectionEls, contentW, contentH, docCSS);
+    return {
+      layouts: buildPageLayouts(pages.pages, pageSettings, noteTitle),
+      overflowed: pages.overflowed,
+    };
+  }
+
+  for (let pass = 0; pass < MAX_PASSES; pass++) {
+    const result = paginateSections(sectionEls, contentW, contentH, docCSS);
+    const pages = result.pages;
+    overflowed = result.overflowed;
+    collapseCompactTocLeadingMargins(pages);
+
+    layouts = buildPageLayouts(pages, pageSettings, noteTitle);
+    const headings = extractOutlineEntries(layouts);
+    const signature = `${pages.length}|${
+      headings.map((h) => `${h.level}:${h.page}:${h.label}:${h.title}`).join("|")
+    }`;
+
+    for (const spec of specs) {
+      const ref = anchors.get(spec.id);
+      if (!ref) continue;
+      const entries = selectTocEntries(
+        headings, spec, ref.firstHeadingIndex,
+        spec.kind === "full" ? settings.fullDepth : settings.compactDepth,
+      );
+      const element = buildTocElement(spec, entries, settings, isRTL);
+      element.setAttribute("data-mpdf-toc-id", String(spec.id));
+      element.setAttribute("data-mpdf-toc-kind", spec.kind);
+      substituteTocAnchor(ref, element);
+    }
+
+    if (signature === previousSignature) break;
+    previousSignature = signature;
+  }
+
+  removeResidualTocAnchors(sectionEls);
+  return { layouts, overflowed };
 }
 
 // ─── Modal ────────────────────────────────────────────────────────────────────
@@ -527,7 +754,12 @@ export class PDFExportModal extends Modal {
 
     md = PDFExportModal.insertAutoBreaks(md, s.autoBreakH1, s.autoBreakH2);
 
-    const sections = splitMarkdownSections(md);
+    // Markers are replaced by anchor paragraphs before rendering; a full-page
+    // anchor is also promoted to its own section so the paginator gives it a
+    // page break on both sides.
+    const tocParse = replaceTocMarkers(md);
+    const sections = splitMarkdownSections(tocParse.markdown)
+      .flatMap((section) => splitSectionAtFullToc(section));
     const dims = resolvePageDims(s);
     const pw = s.orientation === "landscape" ? dims.h : dims.w;
     const ph = s.orientation === "landscape" ? dims.w : dims.h;
@@ -548,9 +780,12 @@ export class PDFExportModal extends Modal {
     const isRTL    = isRTLContent(this.editorEl.value);
     const docCSS   = buildDocCSS(s, isRTL);
     const sourcePath = this.currentFile?.path ?? "pdf-export";
+    // A document-wide map keeps heading ids unique across sections, so a
+    // contents entry can link to exactly one heading in the exported PDF.
+    const seenHeadingIds = new Map<string, number>();
 
     const sectionEls = await Promise.all(
-      sections.map((sec) => renderMarkdownToEl(this.app, sec, sourcePath, this.renderComponent)),
+      sections.map((sec) => renderMarkdownToEl(this.app, sec, sourcePath, this.renderComponent, seenHeadingIds)),
     );
 
     if (token !== this.renderToken) return;
@@ -565,19 +800,33 @@ export class PDFExportModal extends Modal {
     const shadowMathCSS = rawMathCSS ? stripAtFontFaces(rawMathCSS) : "";
     const fullCSS = shadowMathCSS ? `${shadowMathCSS}\n${docCSS}` : docCSS;
 
-    const allPages: HTMLElement[][] = [];
-    let overflowed = false;
-    for (const sectionEl of sectionEls) {
-      const section = paginateEl(sectionEl, contentW, contentH, fullCSS);
-      allPages.push(...section.pages);
-      if (section.overflowed) overflowed = true;
-    }
+    const noteTitle = this.currentFile?.basename ?? "";
+    const tocSettings: TocSettings = {
+      defaultTitle: s.tocTitle,
+      fullDepth: s.tocDepth,
+      fullFontSizeEm: s.tocFontSize,
+      fullLineHeight: s.tocLineHeight,
+      // A contents entry may only print a page number that the footer also
+      // prints, so the global page-number switch gates both contents types on
+      // top of their own per-type switch.
+      fullShowPageNumbers: resolveTocPageNumberVisibility(s.tocShowPageNumbers, s.showPageNumbers),
+      compactDepth: s.tocCompactDepth,
+      compactFontSizeEm: s.tocCompactFontSize,
+      compactLineHeight: s.tocCompactLineHeight,
+      compactShowPageNumbers: resolveTocPageNumberVisibility(s.tocCompactShowPageNumbers, s.showPageNumbers),
+      compactLeaderLengthEm: s.tocCompactLeaderLength,
+    };
+    const tocContext = collectTocAnchors(sectionEls, tocParse.markers);
+    const activeTocSpecs = discardEmptyTocMarkers(tocContext, tocParse.markers, tocSettings, sectionEls);
+    const solved = solveTocLayouts(
+      sectionEls, tocContext.anchors, activeTocSpecs, tocSettings,
+      isRTL, contentW, contentH, fullCSS, s, noteTitle,
+    );
 
-    const layouts = buildPageLayouts(allPages, s, this.currentFile?.basename ?? "");
-    this.layoutCache = { layouts, pw, ph, mTop, mLeft, mRight, footerH, headerH, contentW, contentH, docCSS: fullCSS, fontFamily: resolveFont(s), accentColor: s.accentColor, pageBackground: s.pageBackground, isRTL };
+    this.layoutCache = { layouts: solved.layouts, tocSpecs: activeTocSpecs, tocSettings, pw, ph, mTop, mLeft, mRight, footerH, headerH, contentW, contentH, docCSS: fullCSS, fontFamily: resolveFont(s), accentColor: s.accentColor, pageBackground: s.pageBackground, isRTL };
 
     this.drawPreview(this.layoutCache, s.previewScale);
-    this.reportOverflow(overflowed, layouts.length);
+    this.reportOverflow(solved.overflowed, solved.layouts.length);
     this.hideLoading();
   }
 
@@ -830,7 +1079,7 @@ export class PDFExportModal extends Modal {
    *  dialog) — they diverge only in what they do with the result. Shows its
    *  own Notice and returns null on failure; callers own the busy state
    *  around the call. */
-  private async buildExportDocument(): Promise<{ fullHTML: string; layouts: PageLayout[] } | null> {
+  private async buildExportDocument(): Promise<{ fullHTML: string; layouts: PageLayout[]; bookmarkEntries: OutlineEntry[] } | null> {
     const s = this.plugin.settings;
 
     // Ensure we have a layout — run a full render if the modal was just opened.
@@ -948,7 +1197,7 @@ ${pageHTMLParts.join("\n")}
 </body>
 </html>`;
 
-    return { fullHTML, layouts };
+    return { fullHTML, layouts, bookmarkEntries: collectBookmarkEntries(layouts, cache.tocSpecs, cache.tocSettings) };
   }
 
   /** Creates a hidden BrowserWindow, loads fullHTML into it via a blob: URL,
@@ -999,7 +1248,7 @@ ${pageHTMLParts.join("\n")}
 
     const built = await this.buildExportDocument();
     if (!built) { this.setExportBusy(null); return; }
-    const { fullHTML, layouts } = built;
+    const { fullHTML, bookmarkEntries } = built;
 
     try {
       // Obsidian uses @electron/remote; the legacy `electron.remote` property is
@@ -1055,9 +1304,11 @@ ${pageHTMLParts.join("\n")}
         });
 
         // printToPDF produces a flat PDF with no outline; inject one via pdf-lib.
+        // Full-page contents pages are bookmarked at their physical position by
+        // collectBookmarkEntries, so no special-casing is needed here.
         if (s.includeOutline) {
           try {
-            data = await injectPDFOutline(data, extractOutlineEntries(layouts));
+            data = await injectPDFOutline(data, bookmarkEntries);
           } catch (outlineErr) {
             console.warn("[advanced-pdf-export] outline injection failed:", outlineErr);
           }
