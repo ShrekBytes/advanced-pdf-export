@@ -330,7 +330,7 @@ export class PDFExportSettingTab extends PluginSettingTab {
       group("Table of Contents", [
         {
           name: "TOC Usage",
-          desc: "At the beginning of a standalone line, type {{toc}} to generate a full-page table of contents, or type {{toc_compact}} to generate a compact table of contents. The full-page table of contents will be generated on a separate page, while the compact table of contents will be embedded within the context section. Explicitly specifying {{toc_N}} or {{toc_compact_N}} changes the display scope to a specific number of headings below the marker; in this case, you can also explicitly specify the display title content above the marker using {{toc_N:heading}} or {{toc_compact:heading}}.",
+          desc: "At the beginning of a standalone line, type {{toc}} to generate a full-page table of contents, or type {{toc_compact}} to generate a compact table of contents. The full-page table of contents will be generated on a separate page, while the compact table of contents will be embedded within the context section. Explicitly specifying {{toc_N}} or {{toc_compact_N}} changes the display scope to a specific number of headings below the marker; a bare count takes the next headings at any level and ignores the index depth. Add a depth to limit the heading levels, either alone ({{toc_dD}} or {{toc_compact_dD}}) or together with a count ({{toc_N_dD}} or {{toc_compact_N_dD}}), in which case the marker's own depth is applied before the count. You can also explicitly specify the display title content above the marker using {{toc_N:heading}}, {{toc_N_dD:heading}} or {{toc_compact:heading}}.",
         },
         text("Heading", "tocTitle", {
           desc: "Controls the heading content displayed on the full-page table of contents when no specific heading content is explicitly specified. The default heading for the compact table of contents has been disabled, so you need to manually specify the content.",
@@ -338,7 +338,7 @@ export class PDFExportSettingTab extends PluginSettingTab {
         }),
         dropdown("Full-page TOC index depth", "tocDepth", {
           "1": "H1 only", "2": "H1–H2", "3": "H1–H3", "4": "H1–H4", "5": "H1–H5", "6": "H1–H6",
-        }, { desc: "It will fail when the range is explicitly specified." }),
+        }, { desc: "Deepest heading level listed when the marker names no depth of its own. A marker with only an explicit entry count ignores this depth; a marker that names a depth uses the marker's depth instead." }),
         dropdown("Full-page TOC font size", "tocFontSize", {
           "0.7": "0.70em", "0.75": "0.75em", "0.8": "0.80em", "0.85": "0.85em",
           "0.9": "0.90em", "0.95": "0.95em", "1": "1.00em", "1.1": "1.10em", "1.2": "1.20em",
@@ -351,7 +351,7 @@ export class PDFExportSettingTab extends PluginSettingTab {
           "When Show page numbers is disabled, page number display will be turned off."),
         dropdown("Compact TOC index depth", "tocCompactDepth", {
           "1": "H1 only", "2": "H1–H2", "3": "H1–H3", "4": "H1–H4", "5": "H1–H5", "6": "H1–H6",
-        }, { desc: "It will fail when the range is explicitly specified." }),
+        }, { desc: "Deepest heading level listed when the marker names no depth of its own. A marker with only an explicit entry count ignores this depth; a marker that names a depth uses the marker's depth instead." }),
         dropdown("Compact TOC font size", "tocCompactFontSize", {
           "0.7": "0.70em", "0.75": "0.75em", "0.8": "0.80em", "0.85": "0.85em",
           "0.9": "0.90em", "0.95": "0.95em", "1": "1.00em", "1.1": "1.10em", "1.2": "1.20em",

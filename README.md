@@ -37,7 +37,7 @@ If this plugin saves you time, consider **[supporting the project](https://shrek
 - **Background** — solid color or a background image with fit, scope (full page or content area only), and opacity controls
 - **Header & footer** — custom text, customizable page numbers (`{{current}}` / `{{total}}` template placeholders), alignment, font size/color, optional banner image, and first-page suppression
 - **PDF outline (bookmarks)** — heading-based bookmark tree embedded in the exported PDF; most PDF readers display it in a side panel
-- **Table of contents** — insert `{{toc}}` on its own line for a full-page contents, or `{{toc_compact}}` for a compact contents that flows with the text; entries use the page numbers from the finished layout, are clickable internal links, and both forms accept an explicit entry count and heading
+- **Table of contents** — insert `{{toc}}` on its own line for a full-page contents, or `{{toc_compact}}` for a compact contents that flows with the text; entries use the page numbers from the finished layout, are clickable internal links, and both forms accept an explicit entry count, an explicit heading-level depth, and a custom heading
 - **Print** — send the rendered document straight to any installed printer, or your OS's own "Save as PDF" dialog, via **Export PDF ▾ → Print…**
 
 ## Screenshots
@@ -90,7 +90,7 @@ Search for **Advanced PDF Export** in **Settings → Community Plugins → Brows
 
 **Change style or page settings** — use the **Style**, **Size**, and **Orient** dropdowns in the topbar. Changes re-render automatically.
 
-**Add a table of contents** — place `{{toc}}` on its own line where a full-page contents should appear, or `{{toc_compact}}` for a compact contents that flows with the surrounding text. Both list the headings below the marker with the page numbers they land on, and each entry is a link that jumps to its heading. Append a count to limit the entries (`{{toc_5}}`, `{{toc_compact_3}}`), or a colon and text to override the heading (`{{toc:Contents}}`, `{{toc_compact:In this section}}`). A full-page contents starts on a new page and the content resumes on a new page after it; a compact contents sits in the text flow and prints no heading unless its marker supplies one. Markers are case-sensitive and must start at the beginning of a line.
+**Add a table of contents** — place `{{toc}}` on its own line where a full-page contents should appear, or `{{toc_compact}}` for a compact contents that flows with the surrounding text. Both list the headings below the marker with the page numbers they land on, and each entry is a link that jumps to its heading. Append a count to limit the entries (`{{toc_5}}`, `{{toc_compact_3}}`), a `d` and a level to cap the depth (`{{toc_d3}}`, `{{toc_compact_d2}}`), or both (`{{toc_5_d3}}`) to cap the depth before the count is taken; a count on its own takes the next headings at any level. A colon and text overrides the heading (`{{toc:Contents}}`, `{{toc_compact:In this section}}`). A full-page contents starts on a new page and the content resumes on a new page after it; a compact contents sits in the text flow and prints no heading unless its marker supplies one. Markers are case-sensitive and must start at the beginning of a line.
 
 **Export** — click **⬇ Export PDF** to open a native save dialog and write the PDF to disk. The dialog opens pre-filled in the note's own folder with the note's file name as `.pdf`, so there's nothing to re-pick each time; turn off **Settings → Output → Pre-fill save location** if you'd rather it start from scratch. Click the **▾** next to the button for **Print…**, which sends the document to any installed printer or your OS's own "Save as PDF" dialog instead.
 
@@ -229,20 +229,24 @@ A table of contents is inserted with a marker on its own line, not with a global
 | Marker | Result |
 |---|---|
 | `{{toc}}` | Full-page contents: page break before and after, listing the whole document |
-| `{{toc_N}}` | Full-page contents listing the next `N` headings below the marker |
+| `{{toc_N}}` | Full-page contents listing the next `N` headings below the marker, at any level |
+| `{{toc_dD}}` | Full-page contents listing the whole document, limited to headings H1–H`D` |
+| `{{toc_N_dD}}` | Full-page contents listing the next `N` headings below the marker, limited to headings H1–H`D` |
 | `{{toc:Title}}` | Full-page contents under a custom heading |
 | `{{toc_compact}}` | Compact contents that flows with the text; covers the first heading below the marker and its descendants up to the next heading at the same or a higher level |
-| `{{toc_compact_N}}` | Compact contents listing the next `N` headings below the marker |
+| `{{toc_compact_N}}` | Compact contents listing the next `N` headings below the marker, at any level |
+| `{{toc_compact_dD}}` | Compact contents limited to headings H1–H`D` |
+| `{{toc_compact_N_dD}}` | Compact contents listing the next `N` headings below the marker, limited to headings H1–H`D` |
 | `{{toc_compact:Title}}` | Compact contents under a custom heading |
 
 | Setting | Description |
 |---|---|
 | Heading | Default heading shown above a full-page `{{toc}}` unless a marker overrides it (default: `Table of Contents`). A compact contents prints a heading only when its marker supplies one |
-| Full-page TOC index depth | Deepest heading level listed by a full-page `{{toc}}`; ignored when the marker specifies an explicit entry count |
+| Full-page TOC index depth | Deepest heading level listed when the marker names no depth of its own (default: H1–H6). A marker with only an explicit entry count ignores this depth; a marker that names a depth uses the marker's depth instead |
 | Full-page TOC font size | Full-page contents font size, as a multiple of the body font size |
 | Full-page TOC line height | Full-page contents line-height multiplier |
 | Full-page TOC: show page numbers | Print the resolved page number beside each full-page entry |
-| Compact TOC index depth | Deepest heading level listed by a compact `{{toc_compact}}`; ignored when the marker specifies an explicit entry count |
+| Compact TOC index depth | Deepest heading level listed when the marker names no depth of its own (default: H1–H6). A marker with only an explicit entry count ignores this depth; a marker that names a depth uses the marker's depth instead |
 | Compact TOC font size | Compact contents font size, as a multiple of the body font size |
 | Compact TOC line height | Compact contents line-height multiplier; also the height of the blank line around it |
 | Compact TOC: show page numbers | Print the resolved page number beside each compact entry |

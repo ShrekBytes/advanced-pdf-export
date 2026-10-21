@@ -7,11 +7,17 @@
 //   {{toc}}                full-page contents; page breaks before and after
 //   {{toc_compact}}        compact contents flowing with the surrounding text
 //
-// Both accept an optional count and title:
+// Both accept an optional count, an optional depth, and a title:
 //
-//   {{toc_5}}              the next five headings below the marker
+//   {{toc_5}}              the next five headings below the marker, at any level
+//   {{toc_d3}}             the whole document, limited to H1–H3
+//   {{toc_5_d3}}           the next five headings, limited to H1–H3
 //   {{toc:Custom title}}   the whole document, under a custom heading
 //   {{toc_compact_5:...}}  compact, five headings, custom heading
+//
+// A count without a depth is positional: it takes the next headings whatever
+// their level, so the configured depth does not narrow it. Naming a depth is
+// what re-applies the level filter, to the count when both are present.
 //
 // Page numbers are resolved from the paginated layout by the caller, so the
 // numbers printed here are the ones the reader lands on. Selecting which
@@ -28,6 +34,8 @@ export interface TocMarkerSpec {
   kind: TocKind;
   /** Explicit number of headings to include, from `{{toc_N}}`. */
   count?: number;
+  /** Explicit deepest heading level, from the `d` suffix (`{{toc_dN}}`, `{{toc_N_dN}}`). */
+  depth?: number;
   /** Explicit heading text, from `{{toc:Title}}`. */
   title?: string;
 }
@@ -55,7 +63,7 @@ export interface TocSettings {
 // ─── Marker parsing ──────────────────────────────────────────────────────────
 
 /** Marker grammar. Case-sensitive: only the exact lower-case forms match. */
-const MARKER_RE = /^\{\{(toc_compact|toc)(?:_(\d+))?(?::(.*))?\}\}$/;
+const MARKER_RE = /^\{\{(toc_compact|toc)(?:_(\d+))?(?:_d(\d+))?(?::(.*))?\}\}$/;
 
 /**
  * Anchor token substituted for a marker before rendering. A private marker is
@@ -127,10 +135,15 @@ export function replaceTocMarkers(md: string): TocMarkerParseResult {
       out.push(line);
       continue;
     }
-    const title = match[3]?.trim();
+    const depth = match[3] !== undefined ? parseInt(match[3], 10) : undefined;
+    if (depth !== undefined && (depth < 1 || depth > 6)) {
+      out.push(line);
+      continue;
+    }
+    const title = match[4]?.trim();
 
     const id = markers.length;
-    markers.push({ id, kind, count, title: title || undefined });
+    markers.push({ id, kind, count, depth, title: title || undefined });
     // Blank lines around the anchor force it into its own paragraph regardless
     // of the source spacing.
     out.push("", anchorText(id, kind), "");
@@ -177,14 +190,20 @@ export function splitSectionAtFullToc(section: string): string[] {
  * Chooses the headings a marker covers.
  *
  * - An explicit count takes the next `count` headings below the marker, in
- *   document order, after the depth filter.
+ *   document order. On its own it selects by position, not by level: only a
+ *   marker that names a depth applies a level filter, so a bare count ignores
+ *   the configured depth. Naming both a count and a depth applies the depth
+ *   first, then takes `count`.
+ * - An explicit depth (`{{toc_dN}}`) narrows selection to H1–H`N`, taking
+ *   precedence over the configured depth whether or not a count is present.
  * - A full-page marker without a count covers the whole document.
  * - A compact marker without a count covers the first heading below the marker
  *   together with its descendants, stopping before the next heading at the same
  *   or a higher level.
  *
  * `firstHeadingIndex` is the index, in the ordered heading list, of the first
- * heading below the marker.
+ * heading below the marker. `maxLevel` is the configured depth, used only when
+ * the marker names no depth of its own.
  */
 export function selectTocEntries(
   headings: OutlineEntry[],
@@ -192,10 +211,14 @@ export function selectTocEntries(
   firstHeadingIndex: number,
   maxLevel: number,
 ): OutlineEntry[] {
-  const withinDepth = (entry: OutlineEntry) => entry.level <= maxLevel;
+  const depth = spec.depth ?? maxLevel;
+  const withinDepth = (entry: OutlineEntry) => entry.level <= depth;
 
   if (spec.count !== undefined) {
-    return headings.slice(firstHeadingIndex).filter(withinDepth).slice(0, spec.count);
+    const below = headings.slice(firstHeadingIndex);
+    // A count on its own is positional; only a marker that names a depth is
+    // narrowed to the configured or explicit level range.
+    return (spec.depth !== undefined ? below.filter(withinDepth) : below).slice(0, spec.count);
   }
 
   if (spec.kind === "full") {

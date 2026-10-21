@@ -398,11 +398,11 @@ export const DEFAULT_SETTINGS: PDFExportSettings = {
   includeOutline: true,
   // Table of contents
   tocTitle: "Table of Contents",
-  tocDepth: 3,
+  tocDepth: 6,
   tocFontSize: 1,
   tocLineHeight: 1.7,
   tocShowPageNumbers: true,
-  tocCompactDepth: 3,
+  tocCompactDepth: 6,
   tocCompactFontSize: 1,
   tocCompactLineHeight: 1.85,
   tocCompactShowPageNumbers: true,

@@ -79,19 +79,29 @@ describe("replaceTocMarkers", () => {
       "{{toc}}",
       "{{toc_5}}",
       "{{toc:Custom title}}",
+      "{{toc_d3}}",
+      "{{toc_5_d2}}",
+      "{{toc_5_d2:Depth title}}",
       "{{toc_compact}}",
       "{{toc_compact_3}}",
       "{{toc_compact_2:Compact title}}",
+      "{{toc_compact_d2}}",
+      "{{toc_compact_3_d4:Compact depth title}}",
     ].join("\n");
 
     const { markers } = replaceTocMarkers(md);
-    expect(markers).toHaveLength(6);
-    expect(markers[0]).toMatchObject({ kind: "full", count: undefined, title: undefined });
-    expect(markers[1]).toMatchObject({ kind: "full", count: 5 });
+    expect(markers).toHaveLength(11);
+    expect(markers[0]).toMatchObject({ kind: "full", count: undefined, depth: undefined, title: undefined });
+    expect(markers[1]).toMatchObject({ kind: "full", count: 5, depth: undefined });
     expect(markers[2]).toMatchObject({ kind: "full", count: undefined, title: "Custom title" });
-    expect(markers[3]).toMatchObject({ kind: "compact" });
-    expect(markers[4]).toMatchObject({ kind: "compact", count: 3 });
-    expect(markers[5]).toMatchObject({ kind: "compact", count: 2, title: "Compact title" });
+    expect(markers[3]).toMatchObject({ kind: "full", depth: 3 });
+    expect(markers[4]).toMatchObject({ kind: "full", count: 5, depth: 2 });
+    expect(markers[5]).toMatchObject({ kind: "full", count: 5, depth: 2, title: "Depth title" });
+    expect(markers[6]).toMatchObject({ kind: "compact" });
+    expect(markers[7]).toMatchObject({ kind: "compact", count: 3 });
+    expect(markers[8]).toMatchObject({ kind: "compact", count: 2, title: "Compact title" });
+    expect(markers[9]).toMatchObject({ kind: "compact", depth: 2 });
+    expect(markers[10]).toMatchObject({ kind: "compact", count: 3, depth: 4, title: "Compact depth title" });
   });
 
   it("leaves malformed, mis-cased, and indented markers as literal text", () => {
@@ -100,6 +110,10 @@ describe("replaceTocMarkers", () => {
       "{{toc_0}}",
       "{{toc_abc}}",
       "{{toc_extra}}",
+      "{{toc_d0}}",
+      "{{toc_d7}}",
+      "{{toc_5d3}}",
+      "{{toc_d3_5}}",
       "  {{toc}}",
       "`{{toc}}`",
       "{{toc}} trailing text",
@@ -181,6 +195,28 @@ describe("selectTocEntries", () => {
   it("lists the next counted headings below a compact marker", () => {
     const entries = selectTocEntries(headings, { id: 0, kind: "compact", count: 2 }, 0, 6);
     expect(titles(entries)).toEqual(["A", "A1"]);
+  });
+
+  it("ignores the configured depth when a count is given", () => {
+    // The configured depth of 2 would drop A1a, but a bare count selects by
+    // position, so the next four headings are taken at any level.
+    const entries = selectTocEntries(headings, { id: 0, kind: "full", count: 4 }, 0, 2);
+    expect(titles(entries)).toEqual(["A", "A1", "A1a", "A2"]);
+  });
+
+  it("applies an explicit depth from the marker", () => {
+    const entries = selectTocEntries(headings, { id: 0, kind: "compact", depth: 2 }, 0, 6);
+    expect(titles(entries)).toEqual(["A", "A1", "A2"]);
+  });
+
+  it("applies the marker depth before an explicit count", () => {
+    const entries = selectTocEntries(headings, { id: 0, kind: "full", count: 4, depth: 2 }, 0, 6);
+    expect(titles(entries)).toEqual(["A", "A1", "A2", "B"]);
+  });
+
+  it("lets a marker depth override the configured depth", () => {
+    const entries = selectTocEntries(headings, { id: 0, kind: "compact", depth: 6 }, 0, 2);
+    expect(titles(entries)).toEqual(["A", "A1", "A1a", "A2"]);
   });
 
   it("applies the depth filter", () => {
