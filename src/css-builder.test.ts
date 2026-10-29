@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildDocCSS } from "./css-builder";
+import { buildDocCSS, clampImageRadius } from "./css-builder";
 import { DEFAULT_SETTINGS } from "./settings";
 
 /** The `text-align` declared by the rule whose selector list contains `selector`,
@@ -48,5 +48,24 @@ describe("buildDocCSS table alignment", () => {
     expect(textAlignFor(rtl, '.mpdf-doc th[align="center"]')).toBe("center");
     expect(textAlignFor(rtl, '.mpdf-doc th[align="right"]')).toBe("end");
     expect(textAlignFor(rtl, '.mpdf-doc td[align="right"]')).toBe("end");
+  });
+});
+
+describe("buildDocCSS image radius", () => {
+  const imgRule = (css: string) => css.match(/\.mpdf-doc img \{[^}]*\}/)?.[0] ?? "";
+
+  it("defaults to square corners", () => {
+    expect(imgRule(buildDocCSS({ ...DEFAULT_SETTINGS }))).toContain("border-radius: 0px");
+  });
+
+  it("applies the configured radius in px", () => {
+    expect(imgRule(buildDocCSS({ ...DEFAULT_SETTINGS, imageRadius: 24 }))).toContain("border-radius: 24px");
+  });
+
+  it("clamps out-of-range and invalid values", () => {
+    expect(clampImageRadius(250)).toBe(100);
+    expect(clampImageRadius(-5)).toBe(0);
+    expect(clampImageRadius(undefined)).toBe(0);
+    expect(clampImageRadius(NaN)).toBe(0);
   });
 });
