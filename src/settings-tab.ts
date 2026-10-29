@@ -232,6 +232,17 @@ export class PDFExportSettingTab extends PluginSettingTab {
         }, { visible: () => s.backgroundImageEnabled }),
       ]),
 
+      group("Images", [
+        {
+          name: "Round images",
+          desc: "Rounds the corners of images in the export, in pixels, so every image gets the same corner size. 0 is square; a large value turns a square image into a circle.",
+          control: {
+            type: "slider", key: "imageRadius", min: 0, max: 100, step: 1,
+            displayFormat: (v: number) => `${v}px`,
+          },
+        },
+      ]),
+
       {
         ...group("Colors", [
           color("Accent color", "accentColor"),

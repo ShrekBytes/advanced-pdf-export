@@ -46,6 +46,13 @@ export function escapeCSSForStyle(css: string): string {
   return css.replace(/<\/style/gi, "<\\/style");
 }
 
+/** Keeps the image corner radius (px) in the slider's 0–100 range, so a
+ *  hand-edited data.json can't produce an invalid radius. */
+export function clampImageRadius(v: unknown): number {
+  const n = typeof v === "number" && Number.isFinite(v) ? v : 0;
+  return Math.min(100, Math.max(0, n));
+}
+
 /** Converts a vault-relative path or bare filename to an app:// resource URL,
  *  or passes https:// / data: URLs through unchanged. Returns "" for blank input. */
 export function resolveImageUrl(app: App, imagePath: string): string {
@@ -347,7 +354,7 @@ export function buildDocCSS(s: PDFExportSettings, isRTL = false): string {
     border-top: 0.5px solid ${s.accentColor}44;
     margin: ${s.paragraphSpacing * 1.5}em 0;
   }
-  .mpdf-doc img { max-width: 100%; height: auto; display: block; margin: ${s.paragraphSpacing}em auto; }
+  .mpdf-doc img { max-width: 100%; height: auto; display: block; margin: ${s.paragraphSpacing}em auto; border-radius: ${clampImageRadius(s.imageRadius)}px; }
   .mpdf-doc a { color: ${s.accentColor}; ${s.linkUnderline ? "" : "text-decoration: none;"} }
   /* postProcessRenderedHTML removes the external-link class, but some themes
      re-inject it at render time. This rule is cheap defense-in-depth. */
