@@ -1,5 +1,12 @@
 [
   {
+    "version": "4.8.0",
+    "date": "2026-10-29",
+    "changes": [
+      "Fixed show YAML frontmatter when hide frontmatter is off."
+    ]
+  },
+  {
     "version": "4.7.7",
     "date": "2026-10-09",
     "changes": [
@@ -66,15 +73,6 @@
     "changes": [
       "Added a bold text color setting.",
       "Added a button to reset a preset's colors back to their defaults."
-    ]
-  },
-  {
-    "version": "4.4.0",
-    "date": "2026-08-15",
-    "changes": [
-      "Added a {{title}} placeholder to the page number format.",
-      "Added a dropdown menu to the print and export button.",
-      "Added a dedicated code font and a ligature toggle. Ligatures are now off by default."
     ]
   }
 ]
