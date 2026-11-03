@@ -110,7 +110,8 @@ export class PDFExportSettingTab extends PluginSettingTab {
     const fontSizeOptions: Record<string, string> = {};
     ["10", "11", "12", "13", "14", "15", "16"].forEach((v) => { fontSizeOptions[v] = v + "px"; });
 
-    const docCssSetting : SettingDefinitionItem = {
+    const docCssSetting : SettingDefinitionItem[] = [
+      {
         name : "Custom CSS",
         desc: "Custom Export Modal CSS",
         control : {
@@ -119,25 +120,28 @@ export class PDFExportSettingTab extends PluginSettingTab {
           rows: 50,
           defaultValue : DEFAULT_SETTINGS.docCss,
         },
-        extraButtons: [
-          (extra : ExtraButtonComponent) => {
-            const host = extra.extraSettingsEl.parentElement;
-            extra.extraSettingsEl.detach();
-            if (!host) return;
-            const button = new ButtonComponent(host);
-            button.setIcon("reset")
-                  .setTooltip("Reset to default CSS")
-                  .onClick( async () => {
-                    this.plugin.settings.docCss = DEFAULT_SETTINGS.docCss;
-                    void this.markDirty();
-                    this.update();
-                  });
-          }
-        ]
-      };
+      },
+      {
+        name: "Custom CSS Reset",
+        desc: "Reset Custom Export Modal CSS to default",
+        action : () => {
+          this.plugin.settings.docCss = DEFAULT_SETTINGS.docCss;
+          void this.markDirty();
+          this.update();
+        },
+      }
+    ];
     
 
     return [
+      // Not a setting — a way back into the release notes after the update
+      // popup has been dismissed. Lives at the end of the tab because it is
+      // about the plugin rather than about any one export.
+      {
+        name: "What's new",
+        desc: "See what changed in the most recent versions.",
+        action: () => this.plugin.openReleaseNotes(),
+      },
       group("Style Preset", [
         {
           name: "Preset",
@@ -360,15 +364,8 @@ export class PDFExportSettingTab extends PluginSettingTab {
         toggle("Include PDF outline (bookmarks)", "includeOutline",
           "Embeds a bookmark tree into the exported PDF. Most PDF readers display it in a side panel for quick navigation."),
       ]),
-      docCssSetting,
-      // Not a setting — a way back into the release notes after the update
-      // popup has been dismissed. Lives at the end of the tab because it is
-      // about the plugin rather than about any one export.
-      {
-        name: "What's new",
-        desc: "See what changed in the most recent versions.",
-        action: () => this.plugin.openReleaseNotes(),
-      },
+      ...docCssSetting,
+
     ];
   }
 }
