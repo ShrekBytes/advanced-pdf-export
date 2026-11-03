@@ -14,7 +14,7 @@ import {
   SettingDefinitionItem, SettingDefinitionControl, SettingDefinitionGroup, SettingGroupItem,
 } from "obsidian";
 import type MarkdownPDFPlugin from "./main";
-import { PAGE_SIZES, PRESETS } from "./settings";
+import { DEFAULT_SETTINGS, PAGE_SIZES, PRESETS } from "./settings";
 import { CODE_THEMES } from "./css-builder";
 
 // Settings whose values are numbers but are edited via a curated dropdown of
@@ -332,6 +332,15 @@ export class PDFExportSettingTab extends PluginSettingTab {
         toggle("Include PDF outline (bookmarks)", "includeOutline",
           "Embeds a bookmark tree into the exported PDF. Most PDF readers display it in a side panel for quick navigation."),
       ]),
+
+      {
+        name : "Custom CSS",
+        control : {
+          type : "textarea",
+          key: "docCss",
+          rows: 50,
+          placeholder : DEFAULT_SETTINGS.docCss,        }
+      },
 
       // Not a setting — a way back into the release notes after the update
       // popup has been dismissed. Lives at the end of the tab because it is
