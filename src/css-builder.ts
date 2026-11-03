@@ -278,69 +278,140 @@ export function resolveCodeFont(s: PDFExportSettings): string {
 export function buildDocCSS(s: PDFExportSettings, isRTL = false): string {
   const hs = s.headingScale;
   const fontFamily = resolveFont(s);
+  const codeFontFamily = resolveCodeFont(s);
   const tableHeaderTextColor =
     hexLuminance(s.tableHeaderBg) < 0.35 ? "#fff" : s.headingColor;
 
   return `
   .mpdf-doc {
-    font-family: ${fontFamily};
-    font-size: ${s.fontSize}px;
-    line-height: ${s.lineHeight};
-    color: ${s.bodyColor};
+    --pageSize: ${s.pageSize};
+    --orientation: ${s.orientation};
+    --preset: ${s.preset};
+    --name: ${s.name};
+    --fontFamily: ${s.fontFamily};
+    --codeFontFamily: ${s.codeFontFamily};
+    --fontSize: ${s.fontSize}px;
+    --lineHeight: ${s.lineHeight};
+    --paragraphSpacing: ${s.paragraphSpacing}em;
+    --headingScale: ${s.headingScale};
+    --accentColor: ${s.accentColor};
+    --bodyColor: ${s.bodyColor};
+    --boldColor : ${s.boldColor};
+    --headingScale: ${hs};
+    --headingColor: ${s.headingColor};
+    --h1BorderBottom: ${s.h1BorderBottom ? `2px solid ${s.accentColor}`: "none"};
+    --h1PaddingBottom: ${s.h1BorderBottom ? "6px" : "auto"};
+    --h2BorderBottom: ${s.h2BorderBottom ? `0.5px solid ${s.accentColor}55`: "none"};
+    --h2PaddingBottom: ${s.h2BorderBottom ? "5px" : "auto"};
+    --h1Align: ${s.centerH1 ? "center" : "left"};
+    --textDirection: ${isRTL ? "rtl" : "ltr"};
+
+
+  }
+
+  .mpdf-doc {
+    font-family: var(--fontFamily);
+    font-size: var(--fontSize);
+    line-height: var(--lineHeight);
+    color: var(--bodyColor);
     box-sizing: border-box;
-    ${isRTL ? "direction: rtl;" : ""}
+    direction: var(--textDirection);
   }
   .mpdf-doc *, .mpdf-doc *::before, .mpdf-doc *::after { box-sizing: border-box; }
-  .mpdf-doc strong, .mpdf-doc b { font-weight: 700; font-style: normal; color: ${s.boldColor}; }
+  .mpdf-doc strong, .mpdf-doc b { 
+    font-weight: 700; 
+    font-style: normal; 
+    color: var(--boldColor); 
+  }
   .mpdf-doc h1 strong, .mpdf-doc h1 b,
   .mpdf-doc h2 strong, .mpdf-doc h2 b,
   .mpdf-doc h3 strong, .mpdf-doc h3 b,
   .mpdf-doc h4 strong, .mpdf-doc h4 b,
   .mpdf-doc h5 strong, .mpdf-doc h5 b,
-  .mpdf-doc h6 strong, .mpdf-doc h6 b { color: inherit; }
-  .mpdf-doc em, .mpdf-doc i { font-style: italic; font-weight: inherit; }
-  .mpdf-doc mark { background: #ffe066; color: inherit; padding: 0 2px; border-radius: 2px; }
-  .mpdf-doc del, .mpdf-doc s { text-decoration: line-through; }
+  .mpdf-doc h6 strong, .mpdf-doc h6 b { 
+    color: inherit; 
+  }
+  .mpdf-doc em, .mpdf-doc i { 
+    font-style: italic; 
+    font-weight: inherit; 
+  }
+  .mpdf-doc mark { 
+    background: #ffe066;
+    color: inherit; 
+    padding: 0 2px; 
+    border-radius: 2px;
+  }
+  .mpdf-doc del, .mpdf-doc s { 
+    text-decoration: line-through; 
+  }
   .mpdf-doc h1 {
-    font-size: ${Math.round(22 * hs)}px;
+    font-size: round(nearest, calc(22px * var(--headingScale)), 1px);
     font-weight: 700;
-    color: ${s.headingColor};
-    margin: 0 0 ${Math.round(12 * hs)}px;
+    color: var(--headingColor);
+    margin: 0 0 round(nearest, calc(12px * var(--headingScale)), 1px);
     line-height: 1.2;
-    ${s.h1BorderBottom ? `border-bottom: 2px solid ${s.accentColor}; padding-bottom: 6px;` : ""}
-    ${s.centerH1 ? "text-align: center;" : ""}
+    border-bottom: var(--h1BorderBottom);
+    padding-bottom: var(--h1PaddingBottom);
+    text-align: var(--h1Align);
   }
   .mpdf-doc h2 {
-    font-size: ${Math.round(17 * hs)}px;
+    font-size: round(nearest, calc(17px * var(--headingScale)), 1px);
     font-weight: 700;
-    color: ${s.headingColor};
-    margin: ${Math.round(20 * hs)}px 0 ${Math.round(10 * hs)}px;
-    ${s.h2BorderBottom ? `border-bottom: 0.5px solid ${s.accentColor}55; padding-bottom: 5px;` : ""}
+    color: var(--headingColor);
+    margin: round(nearest, calc(20px * var(--headingScale)), 1px) 0 round(nearest, calc(10px * var(--headingScale)), 1px);
+    border-bottom: var(--h2BorderBottom);
+    padding-bottom: var(--h2PaddingBottom);
   }
   .mpdf-doc h3 {
-    font-size: ${Math.round(15 * hs)}px;
+    font-size: round(nearest, calc(15px * var(--headingScale)), 1px);
     font-weight: 700;
-    color: ${s.headingColor};
-    margin: ${Math.round(16 * hs)}px 0 ${Math.round(8 * hs)}px;
+    color: var(--headingColor);
+    margin: round(nearest, calc(16px * var(--headingScale)), 1px) 0 round(nearest, calc(8px * var(--headingScale)), 1px);
     letter-spacing: 0.01em;
   }
-  .mpdf-doc h4 { font-size: ${Math.round(13 * hs)}px; font-weight: 700; color: ${s.headingColor}; margin: 12px 0 6px; letter-spacing: 0.04em; }
-  .mpdf-doc h5 { font-size: ${Math.round(12 * hs)}px; font-weight: 600; color: ${s.headingColor}; margin: 10px 0 4px; font-style: italic; }
-  .mpdf-doc h6 { font-size: ${Math.round(11 * hs)}px; font-weight: 600; color: ${s.bodyColor}; margin: 8px 0 4px; font-style: italic; opacity: 0.75; }
-  .mpdf-doc p { margin: 0 0 ${s.paragraphSpacing}em; }
-  .mpdf-doc ul, .mpdf-doc ol { padding-inline-start: 1.4em; margin: 0 0 ${s.paragraphSpacing}em; }
-  .mpdf-doc li { margin-bottom: 0.2em; line-height: ${s.lineHeight}; }
+  .mpdf-doc h4 { 
+    font-size: round(nearest, calc(13px * var(--headingScale)), 1px); 
+    font-weight: 700; 
+    color: var(--headingColor); 
+    margin: 12px 0 6px; 
+    letter-spacing: 0.04em;
+    }
+  .mpdf-doc h5 {
+    font-size: round(nearest, calc(12px * var(--headingScale)), 1px)px;
+    font-weight: 600;
+    color: var(--headingColor);
+    margin: 10px 0 4px;
+    font-style: italic; 
+  }
+  .mpdf-doc h6 { 
+    font-size: round(nearest, calc(11px * var(--headingScale)), 1px);
+    font-weight: 600; color: var(--bodyColor);
+    margin: 8px 0 4px;
+    font-style: italic;
+    opacity: 0.75;
+  }
+  .mpdf-doc p { 
+    margin: 0 0 var(--paragraphSpacing);
+  }
+  .mpdf-doc ul, .mpdf-doc ol {
+    padding-inline-start: 1.4em;
+    margin: 0 0 var(--paragraphSpacing); 
+  }
+  .mpdf-doc li {
+    margin-bottom: 0.2em;
+    line-height: var(--lineHeight); 
+  }
   .mpdf-doc blockquote {
     border-inline-start: 3px solid ${s.blockquoteBorderColor};
     background: ${s.blockquoteBg};
     padding-block: 4px;
     padding-inline: 1em 0;
-    margin: ${s.paragraphSpacing}em 0;
+    margin: var(--paragraphSpacing) 0;
     font-style: italic;
-    color: ${s.bodyColor}cc;
+    color: var(--bodyColor)cc;
   }
   .mpdf-doc code {
-    font-family: ${resolveCodeFont(s)};
+    font-family: var(--codeFontFamily);
     font-variant-ligatures: ${s.codeFontLigatures ? "normal" : "none"};
     font-size: ${s.codeFontSize}em;
     background: ${s.codeBackground};

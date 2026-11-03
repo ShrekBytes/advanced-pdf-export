@@ -125,6 +125,11 @@ export interface PDFExportSettings extends DocStyle {
   /** When true, the save dialog opens in the note's own folder with the note's
    *  file name pre-filled as ".pdf". Ignored when there is no source note. */
   prefillSaveLocation: boolean;
+
+  // ── Custom CSS for .mpdf-doc ────────────────────────────────────────────────
+  /** Adds everything but 
+  */
+   docCss : string;
 }
 
 // ─── Style Presets ────────────────────────────────────────────────────────────
@@ -372,6 +377,8 @@ export const DEFAULT_SETTINGS: PDFExportSettings = {
   includeOutline: true,
   // Save location
   prefillSaveLocation: true,
+  // docCss
+  docCss : "",
 };
 
 /** Color pickers in the Colors settings group. Used to reset only those
