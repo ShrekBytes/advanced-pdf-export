@@ -282,7 +282,7 @@ export function buildDocCSS(s: PDFExportSettings, isRTL = false): string {
   const tableHeaderTextColor =
     hexLuminance(s.tableHeaderBg) < 0.35 ? "#fff" : s.headingColor;
 
-  return `
+  return (`
   .mpdf-doc {
     --pageSize: ${s.pageSize};
     --orientation: ${s.orientation};
@@ -401,6 +401,9 @@ export function buildDocCSS(s: PDFExportSettings, isRTL = false): string {
     margin-bottom: 0.2em;
     line-height: var(--lineHeight); 
   }
+  ` 
+  // TODO: Checkpoint for css variable conversion
+  + `
   .mpdf-doc blockquote {
     border-inline-start: 3px solid ${s.blockquoteBorderColor};
     background: ${s.blockquoteBg};
@@ -531,7 +534,7 @@ export function buildDocCSS(s: PDFExportSettings, isRTL = false): string {
     height: auto;
     display: block;
   }
-  `.trim();
+  `).trim();
 }
 
 // ─── MathJax CSS extraction ───────────────────────────────────────────────────
