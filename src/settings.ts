@@ -127,7 +127,9 @@ export interface PDFExportSettings extends DocStyle {
   prefillSaveLocation: boolean;
 
   // ── Custom CSS for .mpdf-doc ────────────────────────────────────────────────
-  /** Adds everything but 
+  /** Toggle for adding the ability to modify the built in CSS for export.
+   * The path shouldn't be changed... but it can be, I guess (no settings-tab for it)
+   * defaultCSS cannot be changed, but currentCSS can be modified by the user.
   */
    cssDocument : string;
    customCssEnabled : boolean;
