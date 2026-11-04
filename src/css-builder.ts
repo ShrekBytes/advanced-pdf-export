@@ -282,6 +282,7 @@ export function buildDocCSS(s: PDFExportSettings, isRTL = false): string {
   const tableHeaderTextColor =
     hexLuminance(s.tableHeaderBg) < 0.35 ? "#fff" : s.headingColor;
   const codeCss = buildCodeBlockCSS(s);
+  const userCss = s.customCssEnabled ? s.currentCss : s.defaultCss ?? "";
   return (`
   .mpdf-doc {
     --pageSize: ${s.pageSize};
@@ -318,7 +319,7 @@ export function buildDocCSS(s: PDFExportSettings, isRTL = false): string {
     --codeFontLigatures: ${s.codeFontLigatures ? "normal" : "none"};
     --imageRadius: ${clampImageRadius(s.imageRadius)}px;
     --linkUnderline: ${s.linkUnderline ? "underline" : "none"};
-  }` + codeCss + s.currentCss).trim();
+  }` + codeCss + userCss).trim();
 }
 
 // ─── MathJax CSS extraction ───────────────────────────────────────────────────

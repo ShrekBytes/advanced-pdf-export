@@ -130,6 +130,7 @@ export interface PDFExportSettings extends DocStyle {
   /** Adds everything but 
   */
    cssDocument : string;
+   customCssEnabled : boolean;
    defaultCss : string;
    currentCss : string;
 }
@@ -381,6 +382,7 @@ export const DEFAULT_SETTINGS: PDFExportSettings = {
   prefillSaveLocation: true,
   // cssDocument
   cssDocument: "_advanced-pdf-export/export.css.md",
+  customCssEnabled: false,
   defaultCss : DEFAULT_CSS,
   currentCss : DEFAULT_CSS,
 };

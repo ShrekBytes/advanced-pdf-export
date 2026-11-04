@@ -216,7 +216,7 @@ export class PDFExportModal extends Modal {
   }
 
   async onOpen() {
-    this.plugin.applyCustomCssContent();
+    await this.plugin.applyCustomCssContent();
     this.plugin.activeModal = this;
     this.renderComponent.load();
     this.modalEl.addClass("mpdf-modal");

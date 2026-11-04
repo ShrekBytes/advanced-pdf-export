@@ -6,7 +6,7 @@
 // PDFExportSettingTab (settings-tab.ts) for everything UI-related.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { Menu, Plugin, TFile } from "obsidian";
+import { Menu, Notice, Plugin, TFile } from "obsidian";
 import {
   DocStyle, PDFExportSettings, PRESETS, DEFAULT_SETTINGS, extractDocStyle, PRESET_COLOR_KEYS,
 } from "./settings";
@@ -222,6 +222,10 @@ export default class MarkdownPDFPlugin extends Plugin {
   }
 
   async getOrCreateCssFile(): Promise<TFile> {
+    if ( !this.settings.customCssEnabled ) {
+      new Notice("Custom CSS is disabled. Enable it in the plugin settings to edit the CSS.");
+      throw new Error("Custom CSS is disabled");
+    }
     const path = this.settings.cssDocument;
     let file = this.app.vault.getAbstractFileByPath(path);
 
@@ -240,20 +244,30 @@ export default class MarkdownPDFPlugin extends Plugin {
   }
 
   async openCustomCssEditor(): Promise<void> {
+    if ( !this.settings.customCssEnabled ) {
+      new Notice("Custom CSS is disabled. Enable it in the plugin settings to edit the CSS.");
+      return;
+    }
     const file = await this.getOrCreateCssFile();
     const leaf = this.app.workspace.getLeaf(true);
     await leaf.openFile(file);
   }
 
   async getCustomCssContent(): Promise<string> {
-    const file = await this.getOrCreateCssFile();
-    const content = await this.app.vault.read(file);
+    let content = "";
+    if ( !this.settings.customCssEnabled ) {
+      content =  this.settings.defaultCss ?? "";
+    } else {
+      const file = await this.getOrCreateCssFile();
+      content = await this.app.vault.read(file);
+    }
     const sections = [...content.matchAll(/```(css)?([\s\S]*?)```/g)].map( m => m[2].trim() );
     const css = sections.join("\n\n").trim();
     return css;
   }
 
   async applyCustomCssContent(): Promise<void> {
+    if (!this.settings.customCssEnabled) return;
     const css = await this.getCustomCssContent();
     this.settings.currentCss = css;
     await this.saveSettings();

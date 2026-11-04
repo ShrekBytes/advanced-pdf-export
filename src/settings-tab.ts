@@ -109,28 +109,6 @@ export class PDFExportSettingTab extends PluginSettingTab {
 
     const fontSizeOptions: Record<string, string> = {};
     ["10", "11", "12", "13", "14", "15", "16"].forEach((v) => { fontSizeOptions[v] = v + "px"; });
-
-    const docCssSetting : SettingDefinitionItem[] = [
-      {
-        name : "Custom CSS",
-        desc: "Custom Export Modal CSS",
-        control : {
-          type : "textarea",
-          key: "docCss",
-          rows: 50,
-          defaultValue : DEFAULT_SETTINGS.defaultCss,
-        },
-      },
-      {
-        name: "Custom CSS Reset",
-        desc: "Reset Custom Export Modal CSS to default",
-        action : () => {
-          this.plugin.settings.currentCss = DEFAULT_SETTINGS.defaultCss;
-          void this.markDirty();
-          this.update();
-        },
-      }
-    ];
     
 
     return [
@@ -365,6 +343,10 @@ export class PDFExportSettingTab extends PluginSettingTab {
           "Embeds a bookmark tree into the exported PDF. Most PDF readers display it in a side panel for quick navigation."),
       ]),
       group("Custom CSS", [
+        toggle(
+          "Enable Custom CSS", 
+          "customCssEnabled", 
+          "Use the default Advanced PDF Export CSS when off, otherwise creates a vault file with editable CSS."),
         {
           name : "Edit Custom CSS",
           desc : "Edit the Custom CSS used in the Export Modal.",
