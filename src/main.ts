@@ -231,6 +231,7 @@ export default class MarkdownPDFPlugin extends Plugin {
     const parts = path.split("/");
     parts.pop();
     const folderPath = parts.join("/");
+    console.log(folderPath, !this.app.vault.getAbstractFileByPath(folderPath));
     if ( folderPath && !this.app.vault.getAbstractFileByPath(folderPath) ) {
       await this.app.vault.createFolder(folderPath);
     }
