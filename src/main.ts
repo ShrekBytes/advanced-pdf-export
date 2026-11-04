@@ -6,7 +6,7 @@
 // PDFExportSettingTab (settings-tab.ts) for everything UI-related.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { Menu, Notice, Plugin, TFile } from "obsidian";
+import { Menu, Notice, Plugin, TFile, TFolder } from "obsidian";
 import {
   DocStyle, PDFExportSettings, PRESETS, DEFAULT_SETTINGS, extractDocStyle, PRESET_COLOR_KEYS,
 } from "./settings";
@@ -178,6 +178,20 @@ export default class MarkdownPDFPlugin extends Plugin {
       presetSnapshots: this.presetSnapshots,
       lastSeenVersion: this.lastSeenVersion,
     });
+
+    if (!this.settings.customCssEnabled) {
+      // If the user disables custom CSS, delete the file if it exists and delete the folder if it is now empty.
+      
+      const file = this.app.vault.getAbstractFileByPath(this.settings.cssDocument);
+      if (file instanceof TFile) {
+        await this.app.vault.delete(file);
+      }
+      const folder = this.app.vault.getAbstractFileByPath(this.settings.cssDocument.split("/").slice(0, -1).join("/"));
+      if (folder && folder instanceof TFolder && folder.children.length === 0) {
+        await this.app.vault.delete(folder);
+      }
+    }
+
   }
 
   async saveSettingsAndRender() {

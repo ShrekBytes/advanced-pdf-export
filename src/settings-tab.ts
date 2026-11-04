@@ -343,10 +343,14 @@ export class PDFExportSettingTab extends PluginSettingTab {
           "Embeds a bookmark tree into the exported PDF. Most PDF readers display it in a side panel for quick navigation."),
       ]),
       group("Custom CSS", [
-        toggle(
-          "Enable Custom CSS", 
-          "customCssEnabled", 
-          "Use the default Advanced PDF Export CSS when off, otherwise creates a vault file with editable CSS."),
+        {
+          name: "Enable Custom CSS",
+          desc: "Use the default Advanced PDF Export CSS when off, otherwise creates a vault file with editable CSS.",
+          control: {
+            type: "toggle", 
+            key: "customCssEnabled"
+          }
+        },
         {
           name : "Edit Custom CSS",
           desc : "Edit the Custom CSS used in the Export Modal.",
