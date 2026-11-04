@@ -216,6 +216,7 @@ export class PDFExportModal extends Modal {
   }
 
   async onOpen() {
+    this.plugin.applyCustomCssContent();
     this.plugin.activeModal = this;
     this.renderComponent.load();
     this.modalEl.addClass("mpdf-modal");
@@ -439,6 +440,7 @@ export class PDFExportModal extends Modal {
   // immediate=true  → run on the next frame (button click, Ctrl+Enter, onOpen).
   // immediate=false → debounce 150 ms (settings panel changes).
   render(immediate = false) {
+    this.plugin.applyCustomCssContent();
     const token = ++this.renderToken;
     if (this.renderDebounceTimer !== null) {
       window.clearTimeout(this.renderDebounceTimer);

@@ -118,14 +118,14 @@ export class PDFExportSettingTab extends PluginSettingTab {
           type : "textarea",
           key: "docCss",
           rows: 50,
-          defaultValue : DEFAULT_SETTINGS.docCss,
+          defaultValue : DEFAULT_SETTINGS.defaultCss,
         },
       },
       {
         name: "Custom CSS Reset",
         desc: "Reset Custom Export Modal CSS to default",
         action : () => {
-          this.plugin.settings.docCss = DEFAULT_SETTINGS.docCss;
+          this.plugin.settings.currentCss = DEFAULT_SETTINGS.defaultCss;
           void this.markDirty();
           this.update();
         },
@@ -364,7 +364,20 @@ export class PDFExportSettingTab extends PluginSettingTab {
         toggle("Include PDF outline (bookmarks)", "includeOutline",
           "Embeds a bookmark tree into the exported PDF. Most PDF readers display it in a side panel for quick navigation."),
       ]),
-      ...docCssSetting,
+      {
+        name : "Edit Custom CSS",
+        desc : "Edit the Custom CSS used in the Export Modal.",
+        action : () => {
+          this.plugin.openCustomCssEditor();
+        },
+      },
+      {
+        name : "Restore Default CSS",
+        desc : "Restore the default CSS used in the Export Modal.",
+        action : () => {
+          this.plugin.restoreDefaultCss();
+        },
+      }
 
     ];
   }

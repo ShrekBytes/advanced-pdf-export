@@ -16,6 +16,7 @@ import { warmUpMathJax } from "./markdown";
 import { pendingRelease, releaseHistory } from "./changelog";
 import { ReleaseNotesModal } from "./changelog-modal";
 
+
 export default class MarkdownPDFPlugin extends Plugin {
   declare settings: PDFExportSettings;
   activeModal: PDFExportModal | null = null;
@@ -24,7 +25,7 @@ export default class MarkdownPDFPlugin extends Plugin {
   /** The last version whose release notes were shown. Persisted beside the
    *  settings; undefined until the plugin has shown notes for some version. */
   lastSeenVersion: string | undefined;
-
+  
   async onload() {
     await this.loadSettings();
     // Deferred past startup: opening a window from onload races Obsidian's own
@@ -48,7 +49,25 @@ export default class MarkdownPDFPlugin extends Plugin {
         );
       }),
     );
+    this.addCommand({
+      id: "open-css-editor",
+      name: "Open CSS Editor",
+      callback: () => this.openCustomCssEditor(),
+    })
+    this.addCommand({
+      id: "restore-css-defaults",
+      name: "Restore CSS Defaults",
+      callback: () => this.restoreDefaultCss(),
+    })
+
+    this.addCommand({
+      id: "get-css",
+      name: "Get CSS",
+      callback: () => this.getCustomCssContent(),
+    })
+
     this.addSettingTab(new PDFExportSettingTab(this.app, this));
+
   }
 
   onunload() {
@@ -193,5 +212,49 @@ export default class MarkdownPDFPlugin extends Plugin {
         snap[k] = p[k];
       }
     }
+  }
+
+  /** Opens the Custom CSS editor view. */
+
+  async restoreDefaultCss(): Promise<void> {
+    const file = await this.getOrCreateCssFile();
+    await this.app.vault.modify(file, this.settings.defaultCss ?? "");
+  }
+
+  async getOrCreateCssFile(): Promise<TFile> {
+    const path = this.settings.cssDocument;
+    let file = this.app.vault.getAbstractFileByPath(path);
+
+    if ( file instanceof TFile ) {
+      return file;
+    }
+    const parts = path.split("/");
+    parts.pop();
+    const folderPath = parts.join("/");
+    if ( folderPath && !this.app.vault.getAbstractFileByPath(folderPath) ) {
+      await this.app.vault.createFolder(folderPath);
+    }
+    file = await this.app.vault.create(path, this.settings.defaultCss ?? "");
+    return file as TFile;
+  }
+
+  async openCustomCssEditor(): Promise<void> {
+    const file = await this.getOrCreateCssFile();
+    const leaf = this.app.workspace.getLeaf(true);
+    await leaf.openFile(file);
+  }
+
+  async getCustomCssContent(): Promise<string> {
+    const file = await this.getOrCreateCssFile();
+    const content = await this.app.vault.read(file);
+    const sections = [...content.matchAll(/```(css)?([\s\S]*?)```/g)].map( m => m[2].trim() );
+    const css = sections.join("\n\n").trim();
+    return css;
+  }
+
+  async applyCustomCssContent(): Promise<void> {
+    const css = await this.getCustomCssContent();
+    this.settings.currentCss = css;
+    await this.saveSettings();
   }
 }

@@ -318,7 +318,7 @@ export function buildDocCSS(s: PDFExportSettings, isRTL = false): string {
     --codeFontLigatures: ${s.codeFontLigatures ? "normal" : "none"};
     --imageRadius: ${clampImageRadius(s.imageRadius)}px;
     --linkUnderline: ${s.linkUnderline ? "underline" : "none"};
-  }` + codeCss + s.docCss).trim();
+  }` + codeCss + s.currentCss).trim();
 }
 
 // ─── MathJax CSS extraction ───────────────────────────────────────────────────
