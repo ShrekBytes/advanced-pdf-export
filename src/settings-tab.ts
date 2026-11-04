@@ -364,21 +364,22 @@ export class PDFExportSettingTab extends PluginSettingTab {
         toggle("Include PDF outline (bookmarks)", "includeOutline",
           "Embeds a bookmark tree into the exported PDF. Most PDF readers display it in a side panel for quick navigation."),
       ]),
-      {
-        name : "Edit Custom CSS",
-        desc : "Edit the Custom CSS used in the Export Modal.",
-        action : () => {
-          this.plugin.openCustomCssEditor();
+      group("Custom CSS", [
+        {
+          name : "Edit Custom CSS",
+          desc : "Edit the Custom CSS used in the Export Modal.",
+          action : () => {
+            this.plugin.openCustomCssEditor();
+          },
         },
-      },
-      {
-        name : "Restore Default CSS",
-        desc : "Restore the default CSS used in the Export Modal.",
-        action : () => {
-          this.plugin.restoreDefaultCss();
-        },
-      }
-
+        {
+          name : "Restore Default CSS",
+          desc : "Restore the default CSS used in the Export Modal.",
+          action : () => {
+            this.plugin.restoreDefaultCss();
+          },
+        }
+      ]),
     ];
   }
 }
