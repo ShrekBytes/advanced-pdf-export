@@ -69,3 +69,51 @@ describe("buildDocCSS image radius", () => {
     expect(clampImageRadius(NaN)).toBe(0);
   });
 });
+
+describe("buildDocCSS text justification", () => {
+  const ruleFor = (css: string, selector: string) =>
+    css.match(new RegExp(`${selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} \\{[^}]*\\}`))?.[0] ?? "";
+
+  it("leaves p and li without text-align by default", () => {
+    const css = buildDocCSS({ ...DEFAULT_SETTINGS });
+    expect(textAlignFor(css, ".mpdf-doc p")).toBeUndefined();
+    expect(textAlignFor(css, ".mpdf-doc li")).toBeUndefined();
+  });
+
+  it("justifies p and li with hyphenation and word wrapping when justifyText is enabled", () => {
+    const css = buildDocCSS({ ...DEFAULT_SETTINGS, justifyText: true });
+    expect(textAlignFor(css, ".mpdf-doc p")).toBe("justify");
+    expect(textAlignFor(css, ".mpdf-doc li")).toBe("justify");
+    expect(ruleFor(css, ".mpdf-doc p")).toContain("hyphens: auto");
+    expect(ruleFor(css, ".mpdf-doc p")).toContain("overflow-wrap: break-word");
+    expect(ruleFor(css, ".mpdf-doc li")).toContain("hyphens: auto");
+    expect(ruleFor(css, ".mpdf-doc li")).toContain("overflow-wrap: break-word");
+  });
+
+  it("preserves text-align: justify in RTL mode", () => {
+    const rtl = buildDocCSS({ ...DEFAULT_SETTINGS, justifyText: true }, true);
+    expect(textAlignFor(rtl, ".mpdf-doc p")).toBe("justify");
+    expect(textAlignFor(rtl, ".mpdf-doc li")).toBe("justify");
+  });
+
+  it("isolates code blocks from inherited justification and hyphenation", () => {
+    const css = buildDocCSS({ ...DEFAULT_SETTINGS, justifyText: true });
+    expect(textAlignFor(css, ".mpdf-doc pre")).toBe("start");
+    expect(textAlignFor(css, ".mpdf-doc pre code")).toBe("start");
+    expect(ruleFor(css, ".mpdf-doc pre")).toContain("hyphens: none");
+    expect(ruleFor(css, ".mpdf-doc pre code")).toContain("hyphens: none");
+  });
+
+  it("disables hyphenation and preserves wrapping on inline code", () => {
+    const css = buildDocCSS({ ...DEFAULT_SETTINGS, justifyText: true });
+    expect(ruleFor(css, ".mpdf-doc code")).toContain("white-space: pre-wrap");
+    expect(ruleFor(css, ".mpdf-doc code")).toContain("hyphens: none");
+  });
+
+  it("applies symmetric inline padding and removes trailing paragraph margin in blockquotes", () => {
+    const css = buildDocCSS({ ...DEFAULT_SETTINGS, justifyText: true });
+    expect(ruleFor(css, ".mpdf-doc blockquote")).toContain("padding-inline: 1em;");
+    expect(ruleFor(css, ".mpdf-doc blockquote > p:last-child")).toContain("margin-bottom: 0");
+  });
+});
+

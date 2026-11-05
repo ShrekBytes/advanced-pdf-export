@@ -30,6 +30,7 @@ export interface DocStyle {
   h1BorderBottom: boolean;
   h2BorderBottom: boolean;
   centerH1: boolean;
+  justifyText: boolean;
   blockquoteBg: string;
   blockquoteBorderColor: string;
   codeBackground: string;
@@ -144,6 +145,7 @@ export const PRESETS: Record<string, DocStyle> = {
     h1BorderBottom: false,
     h2BorderBottom: true,
     centerH1: false,
+    justifyText: false,
     blockquoteBg: "transparent",
     blockquoteBorderColor: "#7c6af7",
     codeBackground: "#f0f0f8",
@@ -170,6 +172,7 @@ export const PRESETS: Record<string, DocStyle> = {
     h1BorderBottom: false,
     h2BorderBottom: false,
     centerH1: false,
+    justifyText: false,
     blockquoteBg: "#f8f8f8",
     blockquoteBorderColor: "#ccc",
     codeBackground: "#f4f4f4",
@@ -196,6 +199,7 @@ export const PRESETS: Record<string, DocStyle> = {
     h1BorderBottom: true,
     h2BorderBottom: true,
     centerH1: true,
+    justifyText: false,
     blockquoteBg: "transparent",
     blockquoteBorderColor: "#999",
     codeBackground: "#f9f9f9",
@@ -222,6 +226,7 @@ export const PRESETS: Record<string, DocStyle> = {
     h1BorderBottom: false,
     h2BorderBottom: false,
     centerH1: false,
+    justifyText: false,
     blockquoteBg: "#fdf0f8",
     blockquoteBorderColor: "#e84393",
     codeBackground: "#f0eaff",
@@ -248,6 +253,7 @@ export const PRESETS: Record<string, DocStyle> = {
     h1BorderBottom: false,
     h2BorderBottom: false,
     centerH1: false,
+    justifyText: false,
     blockquoteBg: "#f0f7ff",
     blockquoteBorderColor: "#0070f3",
     codeBackground: "#f1f5f9",
@@ -274,6 +280,7 @@ export const PRESETS: Record<string, DocStyle> = {
     h1BorderBottom: true,
     h2BorderBottom: true,
     centerH1: true,
+    justifyText: false,
     blockquoteBg: "transparent",
     blockquoteBorderColor: "#111",
     codeBackground: "#f4f4f4",
@@ -300,6 +307,7 @@ export const PRESETS: Record<string, DocStyle> = {
     h1BorderBottom: false,
     h2BorderBottom: true,
     centerH1: false,
+    justifyText: false,
     blockquoteBg: "#1e293b",
     blockquoteBorderColor: "#818cf8",
     codeBackground: "#0f172a",
@@ -391,7 +399,7 @@ export function extractDocStyle(s: PDFExportSettings): DocStyle {
     headingScale: s.headingScale, accentColor: s.accentColor,
     bodyColor: s.bodyColor, boldColor: s.boldColor, headingColor: s.headingColor,
     h1BorderBottom: s.h1BorderBottom, h2BorderBottom: s.h2BorderBottom,
-    centerH1: s.centerH1, blockquoteBg: s.blockquoteBg,
+    centerH1: s.centerH1, justifyText: s.justifyText, blockquoteBg: s.blockquoteBg,
     blockquoteBorderColor: s.blockquoteBorderColor, codeBackground: s.codeBackground,
     codeFontSize: s.codeFontSize, codeFontFamily: s.codeFontFamily, codeTheme: s.codeTheme,
     tableHeaderBg: s.tableHeaderBg, tableBorderColor: s.tableBorderColor,
