@@ -24,7 +24,7 @@ import {
   splitMarkdownSections, isRTLContent, renderMarkdownToEl,
 } from "./markdown";
 import {
-  paginateEl, buildPageLayouts, extractOutlineEntries, injectPDFOutline, PageLayout,
+  paginateEl, buildPageLayouts, extractOutlineEntries, injectPDFOutline, PageGeometry, PageLayout,
 } from "./paginator";
 import { pdfFileName, resolveSaveLocation } from "./save-path";
 
@@ -270,7 +270,7 @@ export class PDFExportModal extends Modal {
       "Type or paste markdown here to preview and export as PDF.\n\n" +
       "Tip: open this panel from a note's right-click menu, command palette,\n" +
       "or keyboard shortcut to auto-load the active note.\n\n" +
-      "Use /// on its own line for a manual page break.\n" +
+      "Use /// on its own line for a manual page break (or /// landscape / /// portrait).\n" +
       "Use --- for a horizontal rule.\n\n" +
       "Mermaid diagrams are supported:\n```mermaid\nflowchart LR\n  A --> B --> C\n```\n\n" +
       "Markdown tables:\n| Col A | Col B |\n|-------|-------|\n| Cell  | Cell  |";
@@ -527,10 +527,12 @@ export class PDFExportModal extends Modal {
 
     md = PDFExportModal.insertAutoBreaks(md, s.autoBreakH1, s.autoBreakH2);
 
-    const sections = splitMarkdownSections(md);
-    const dims = resolvePageDims(s);
-    const pw = s.orientation === "landscape" ? dims.h : dims.w;
-    const ph = s.orientation === "landscape" ? dims.w : dims.h;
+    const sections = splitMarkdownSections(md, s.orientation);
+    const baseDims = resolvePageDims(s);
+    const portraitPw = Math.min(baseDims.w, baseDims.h);
+    const portraitPh = Math.max(baseDims.w, baseDims.h);
+    const landscapePw = Math.max(baseDims.w, baseDims.h);
+    const landscapePh = Math.min(baseDims.w, baseDims.h);
 
     const mTop    = mmToPx(s.marginTop);
     const mBottom = mmToPx(s.marginBottom);
@@ -542,6 +544,21 @@ export class PDFExportModal extends Modal {
     const headerH = s.showHeader && (!!s.headerText || s.showHeaderBorder || !!s.headerImagePath)
       ? (s.headerHeight > 0 ? s.headerHeight : Math.max(20, s.headerFontSize + 10))
       : 0;
+
+    const getGeom = (orientation: "portrait" | "landscape"): PageGeometry => {
+      const pw = orientation === "landscape" ? landscapePw : portraitPw;
+      const ph = orientation === "landscape" ? landscapePh : portraitPh;
+      return {
+        orientation,
+        pw,
+        ph,
+        contentW: Math.max(1, pw - mLeft - mRight),
+        contentH: Math.max(1, ph - mTop - mBottom - footerH - headerH),
+      };
+    };
+
+    const pw = s.orientation === "landscape" ? landscapePw : portraitPw;
+    const ph = s.orientation === "landscape" ? landscapePh : portraitPh;
     // Clamp to at least 1 px so the paginator sandbox never has zero dimensions.
     const contentW = Math.max(1, pw - mLeft - mRight);
     const contentH = Math.max(1, ph - mTop - mBottom - footerH - headerH);
@@ -550,7 +567,7 @@ export class PDFExportModal extends Modal {
     const sourcePath = this.currentFile?.path ?? "pdf-export";
 
     const sectionEls = await Promise.all(
-      sections.map((sec) => renderMarkdownToEl(this.app, sec, sourcePath, this.renderComponent)),
+      sections.map((sec) => renderMarkdownToEl(this.app, sec.content, sourcePath, this.renderComponent)),
     );
 
     if (token !== this.renderToken) return;
@@ -566,14 +583,19 @@ export class PDFExportModal extends Modal {
     const fullCSS = shadowMathCSS ? `${shadowMathCSS}\n${docCSS}` : docCSS;
 
     const allPages: HTMLElement[][] = [];
+    const pageGeometries: PageGeometry[] = [];
     let overflowed = false;
-    for (const sectionEl of sectionEls) {
-      const section = paginateEl(sectionEl, contentW, contentH, fullCSS);
-      allPages.push(...section.pages);
+    for (let i = 0; i < sections.length; i++) {
+      const geom = getGeom(sections[i].orientation);
+      const section = paginateEl(sectionEls[i], geom.contentW, geom.contentH, fullCSS);
+      for (const page of section.pages) {
+        allPages.push(page);
+        pageGeometries.push(geom);
+      }
       if (section.overflowed) overflowed = true;
     }
 
-    const layouts = buildPageLayouts(allPages, s, this.currentFile?.basename ?? "");
+    const layouts = buildPageLayouts(allPages, s, this.currentFile?.basename ?? "", pageGeometries);
     this.layoutCache = { layouts, pw, ph, mTop, mLeft, mRight, footerH, headerH, contentW, contentH, docCSS: fullCSS, fontFamily: resolveFont(s), accentColor: s.accentColor, pageBackground: s.pageBackground, isRTL };
 
     this.drawPreview(this.layoutCache, s.previewScale);
@@ -643,8 +665,8 @@ export class PDFExportModal extends Modal {
     const shadowCSS = `
       :host {
         display: block;
-        width: ${pw}px;
-        height: ${ph}px;
+        width: 100%;
+        height: 100%;
         background: ${pageBackground};
         box-shadow: 0 2px 8px rgba(0,0,0,.30), 0 8px 32px rgba(0,0,0,.25);
         overflow: hidden;
@@ -660,8 +682,13 @@ export class PDFExportModal extends Modal {
     pageSheet.replaceSync(shadowCSS);
 
     for (const layout of layouts) {
-      const scaledW = Math.round(pw * scale);
-      const scaledH = Math.round(ph * scale);
+      const pagePw = layout.pw ?? pw;
+      const pagePh = layout.ph ?? ph;
+      const pageContentW = layout.contentW ?? contentW;
+      const pageContentH = layout.contentH ?? contentH;
+
+      const scaledW = Math.round(pagePw * scale);
+      const scaledH = Math.round(pagePh * scale);
 
       const wrap = this.previewEl.createDiv({ cls: "mpdf-page-wrap" });
       wrap.setCssStyles({ width: `${scaledW}px`, height: `${scaledH}px` });
@@ -674,7 +701,7 @@ export class PDFExportModal extends Modal {
       // Shadow root isolates page content from Obsidian's theme CSS.
       const shadowHost = createDiv();
       shadowHost.addClass("mpdf-shadow-host");
-      shadowHost.setCssStyles({ width: `${pw}px`, height: `${ph}px`, transform: `scale(${scale})` });
+      shadowHost.setCssStyles({ width: `${pagePw}px`, height: `${pagePh}px`, transform: `scale(${scale})` });
       scaleWrap.appendChild(shadowHost);
 
       const shadow = shadowHost.attachShadow({ mode: "open" });
@@ -690,7 +717,7 @@ export class PDFExportModal extends Modal {
           bgEl.setCssStyles({
             position: "absolute",
             ...(isContentOnly
-              ? { top: `${mTop + headerH}px`, left: `${mLeft}px`, width: `${contentW}px`, height: `${contentH}px` }
+              ? { top: `${mTop + headerH}px`, left: `${mLeft}px`, width: `${pageContentW}px`, height: `${pageContentH}px` }
               : { inset: "0" }),
             backgroundImage:    `url('${bgUrl}')`,
             backgroundRepeat:   bgCss.repeat,
@@ -752,7 +779,7 @@ export class PDFExportModal extends Modal {
       // (light DOM) and the shadow DOM rendering context.
       contentDiv.setCssStyles({
         position: "absolute", top: `${mTop + headerH}px`, left: `${mLeft}px`,
-        width: `${contentW}px`,
+        width: `${pageContentW}px`,
       });
       for (const node of layout.pageNodes) contentDiv.appendChild(node.cloneNode(true));
       shadow.appendChild(contentDiv);
@@ -861,6 +888,12 @@ export class PDFExportModal extends Modal {
 
     const { layouts, pw, ph, mTop, mLeft, mRight, footerH, headerH, contentW, contentH, docCSS, fontFamily, accentColor: exportAccent, pageBackground, isRTL } = cache;
 
+    const baseDims = resolvePageDims(s);
+    const portraitPw = Math.min(baseDims.w, baseDims.h);
+    const portraitPh = Math.max(baseDims.w, baseDims.h);
+    const landscapePw = Math.max(baseDims.w, baseDims.h);
+    const landscapePh = Math.min(baseDims.w, baseDims.h);
+
     const frameHTML = buildFrameOverlayHTML(s);
 
     // ── Resolve image URLs once (app:// works in Electron's BrowserWindow) ──────
@@ -871,17 +904,23 @@ export class PDFExportModal extends Modal {
     const resolvedBgImgUrl = (s.backgroundImageEnabled && s.backgroundImagePath)
       ? resolveImageUrl(this.app, s.backgroundImagePath) : "";
 
-    // Page background image HTML (identical on every page; rendered first so it's behind everything)
-    const bgImgHTML = resolvedBgImgUrl ? (() => {
-      const bgCss = bgImageCssProps(s.backgroundImageSize);
-      const pos = s.backgroundImageScope === "content-only"
-        ? `top:${mTop + headerH}px;left:${mLeft}px;width:${contentW}px;height:${contentH}px;`
-        : `inset:0;`;
-      const common = `background-image:url('${resolvedBgImgUrl}');background-size:${bgCss.size};background-repeat:${bgCss.repeat};background-position:center;opacity:${s.backgroundImageOpacity};pointer-events:none;`;
-      return `<div style="position:absolute;${pos}${common}"></div>`;
-    })() : "";
-
     const pageHTMLParts = layouts.map((layout) => {
+      const pagePw = layout.pw ?? pw;
+      const pagePh = layout.ph ?? ph;
+      const pageContentW = layout.contentW ?? contentW;
+      const pageContentH = layout.contentH ?? contentH;
+      const pageOrientation = layout.orientation ?? (s.orientation === "landscape" ? "landscape" : "portrait");
+
+      // Page background image HTML (rendered first so it's behind everything)
+      const pageBgImgHTML = resolvedBgImgUrl ? (() => {
+        const bgCss = bgImageCssProps(s.backgroundImageSize);
+        const pos = s.backgroundImageScope === "content-only"
+          ? `top:${mTop + headerH}px;left:${mLeft}px;width:${pageContentW}px;height:${pageContentH}px;`
+          : `inset:0;`;
+        const common = `background-image:url('${resolvedBgImgUrl}');background-size:${bgCss.size};background-repeat:${bgCss.repeat};background-position:center;opacity:${s.backgroundImageOpacity};pointer-events:none;`;
+        return `<div style="position:absolute;${pos}${common}"></div>`;
+      })() : "";
+
       // pageNodes have already been through postProcessRenderedHTML, which
       // strips style/script tags (preserving those inside SVGs for mermaid).
       // No further sanitisation needed — serialize directly.
@@ -899,7 +938,7 @@ export class PDFExportModal extends Modal {
         ? `<div style="position:absolute;bottom:0;left:0;right:0;height:${footerH}px;display:flex;align-items:center;${footerBorder}padding:0 ${mRight}px 0 ${mLeft}px;font-size:${s.footerFontSize}px;color:${s.footerFontColor};font-family:${fontFamily};">${buildHFInnerHTML(layout.footerCenter, layout.footerLeft, layout.footerRight)}</div>`
         : "";
 
-      const contentDivHTML = `<div class="mpdf-doc"${isRTL ? ' dir="rtl"' : ''} style="position:absolute;top:${mTop + headerH}px;left:${mLeft}px;width:${contentW}px;">${contentHTML}</div>`;
+      const contentDivHTML = `<div class="mpdf-doc"${isRTL ? ' dir="rtl"' : ''} style="position:absolute;top:${mTop + headerH}px;left:${mLeft}px;width:${pageContentW}px;">${contentHTML}</div>`;
 
       // Banner divs precede their text divs so DOM order puts text on top.
       const headerBannerHTML = (layout.pageShowsHeader && resolvedHeaderBannerUrl)
@@ -909,7 +948,7 @@ export class PDFExportModal extends Modal {
         ? `<div style="position:absolute;bottom:0;left:${s.footerImageMargin}px;right:${s.footerImageMargin}px;height:${footerH}px;background-image:url('${resolvedFooterBannerUrl}');background-size:cover;background-position:center;background-repeat:no-repeat;pointer-events:none;"></div>`
         : "";
 
-      return `<div class="mpdf-export-page">${bgImgHTML}${headerBannerHTML}${headerHTML}${contentDivHTML}${footerBannerHTML}${footerHTML}${frameHTML}</div>`;
+      return `<div class="mpdf-export-page is-${pageOrientation}" style="width:${pagePw}px;height:${pagePh}px;">${pageBgImgHTML}${headerBannerHTML}${headerHTML}${contentDivHTML}${footerBannerHTML}${footerHTML}${frameHTML}</div>`;
     });
 
     // Re-confirm the MathJax stylesheet is settled immediately before the
@@ -922,14 +961,25 @@ export class PDFExportModal extends Modal {
 
     const printCSS = `
       *, *::before, *::after { box-sizing: border-box; }
-      @page { size: ${pw}px ${ph}px; margin: 0; }
+      @page { margin: 0; }
+      @page mpdf-portrait { size: ${portraitPw}px ${portraitPh}px; margin: 0; }
+      @page mpdf-landscape { size: ${landscapePw}px ${landscapePh}px; margin: 0; }
       html, body { margin: 0; padding: 0; background: ${pageBackground}; }
       .mpdf-export-page {
         position: relative;
-        width: ${pw}px; height: ${ph}px;
         overflow: hidden;
         background: ${pageBackground};
         page-break-after: always; break-after: page;
+      }
+      .mpdf-export-page.is-portrait {
+        page: mpdf-portrait;
+        width: ${portraitPw}px;
+        height: ${portraitPh}px;
+      }
+      .mpdf-export-page.is-landscape {
+        page: mpdf-landscape;
+        width: ${landscapePw}px;
+        height: ${landscapePh}px;
       }
       .mpdf-export-page:last-child { page-break-after: avoid; break-after: avoid; }
       ${docCSS}
@@ -1046,10 +1096,11 @@ ${pageHTMLParts.join("\n")}
         // Custom sizes embed @page dimensions in the HTML; preferCSSPageSize lets
         // Electron honour that rule. Named sizes pass the size string directly.
         const isCustom = s.pageSize === "Custom";
+        const hasMixedOrientations = layouts.some((l) => l.orientation && l.orientation !== s.orientation);
         let data = await win.webContents.printToPDF({
-          pageSize:          isCustom ? "A4" : s.pageSize,
-          landscape:         !isCustom && s.orientation === "landscape",
-          preferCSSPageSize: isCustom,
+          pageSize:          (isCustom || hasMixedOrientations) ? "A4" : s.pageSize,
+          landscape:         !isCustom && !hasMixedOrientations && s.orientation === "landscape",
+          preferCSSPageSize: isCustom || hasMixedOrientations,
           printBackground:   true,
           margins:           { marginType: "none" },
         });

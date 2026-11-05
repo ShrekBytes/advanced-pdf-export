@@ -2,7 +2,7 @@
 
 import { describe, it, expect } from "vitest";
 import {
-  frontmatterAsCodeBlock, removeEmptyBlocks, stripCommentLines, stripFrontmatter,
+  frontmatterAsCodeBlock, removeEmptyBlocks, splitMarkdownSections, stripCommentLines, stripFrontmatter,
 } from "./markdown";
 
 // These fixtures are hand-written from Obsidian's reported output shape, not
@@ -193,5 +193,152 @@ describe("frontmatterAsCodeBlock", () => {
   it("uses a fence longer than any backtick run in the YAML", () => {
     expect(frontmatterAsCodeBlock("---\nkey: |\n  ```\n---\nbody"))
       .toBe("````yaml\nkey: |\n  ```\n````\nbody");
+  });
+});
+
+describe("splitMarkdownSections", () => {
+  it("maintains default portrait orientation on simple cuts", () => {
+    const md = "Section 1\n///\nSection 2\n///\nSection 3";
+    expect(splitMarkdownSections(md)).toEqual([
+      { content: "Section 1", orientation: "portrait" },
+      { content: "Section 2", orientation: "portrait" },
+      { content: "Section 3", orientation: "portrait" },
+    ]);
+  });
+
+  it("respects defaultOrientation when specified", () => {
+    const md = "Section 1\n///\nSection 2";
+    expect(splitMarkdownSections(md, "landscape")).toEqual([
+      { content: "Section 1", orientation: "landscape" },
+      { content: "Section 2", orientation: "landscape" },
+    ]);
+  });
+
+  it("handles English keywords (/// landscape, /// portrait)", () => {
+    const md = [
+      "Intro",
+      "/// landscape",
+      "Landscape page",
+      "/// portrait",
+      "Portrait page",
+    ].join("\n");
+
+    expect(splitMarkdownSections(md)).toEqual([
+      { content: "Intro", orientation: "portrait" },
+      { content: "Landscape page", orientation: "landscape" },
+      { content: "Portrait page", orientation: "portrait" },
+    ]);
+  });
+
+  it("handles Spanish keywords (/// horizontal, /// vertical, /// apaisado, /// paisaje, /// retrato)", () => {
+    const md = [
+      "Start portrait",
+      "/// horizontal",
+      "Section horizontal",
+      "/// vertical",
+      "Section vertical",
+      "/// apaisado",
+      "Section apaisado",
+      "/// retrato",
+      "Section retrato",
+      "/// paisaje",
+      "Section paisaje",
+    ].join("\n");
+
+    expect(splitMarkdownSections(md)).toEqual([
+      { content: "Start portrait", orientation: "portrait" },
+      { content: "Section horizontal", orientation: "landscape" },
+      { content: "Section vertical", orientation: "portrait" },
+      { content: "Section apaisado", orientation: "landscape" },
+      { content: "Section retrato", orientation: "portrait" },
+      { content: "Section paisaje", orientation: "landscape" },
+    ]);
+  });
+
+  it("handles case-insensitive directives (/// LANDSCAPE, /// Horizontal, etc.)", () => {
+    const md = [
+      "Section 1",
+      "/// LANDSCAPE",
+      "Section 2",
+      "/// PORTRAIT",
+      "Section 3",
+      "/// Horizontal",
+      "Section 4",
+      "/// Vertical",
+      "Section 5",
+      "/// APAISADO",
+      "Section 6",
+      "/// Retrato",
+      "Section 7",
+      "/// PaiSaje",
+      "Section 8",
+    ].join("\n");
+
+    expect(splitMarkdownSections(md)).toEqual([
+      { content: "Section 1", orientation: "portrait" },
+      { content: "Section 2", orientation: "landscape" },
+      { content: "Section 3", orientation: "portrait" },
+      { content: "Section 4", orientation: "landscape" },
+      { content: "Section 5", orientation: "portrait" },
+      { content: "Section 6", orientation: "landscape" },
+      { content: "Section 7", orientation: "portrait" },
+      { content: "Section 8", orientation: "landscape" },
+    ]);
+  });
+
+  it("applies the continuity rule across simple cuts", () => {
+    const md = [
+      "Section 1 (portrait default)",
+      "/// landscape",
+      "Section 2 (landscape)",
+      "///",
+      "Section 3 (remains landscape)",
+      "///",
+      "Section 4 (remains landscape)",
+      "/// portrait",
+      "Section 5 (portrait)",
+      "///",
+      "Section 6 (remains portrait)",
+    ].join("\n");
+
+    expect(splitMarkdownSections(md)).toEqual([
+      { content: "Section 1 (portrait default)", orientation: "portrait" },
+      { content: "Section 2 (landscape)", orientation: "landscape" },
+      { content: "Section 3 (remains landscape)", orientation: "landscape" },
+      { content: "Section 4 (remains landscape)", orientation: "landscape" },
+      { content: "Section 5 (portrait)", orientation: "portrait" },
+      { content: "Section 6 (remains portrait)", orientation: "portrait" },
+    ]);
+  });
+
+  it("discards empty sections and trims whitespace", () => {
+    const md = [
+      "/// landscape",
+      "",
+      "///",
+      "",
+      "   ",
+      "# Trimmed heading",
+      "",
+      "Content with\nmultiple lines",
+      "",
+      "   ",
+      "/// portrait",
+      "///",
+      "",
+    ].join("\n");
+
+    expect(splitMarkdownSections(md)).toEqual([
+      {
+        content: "# Trimmed heading\n\nContent with\nmultiple lines",
+        orientation: "landscape",
+      },
+    ]);
+  });
+
+  it("returns an empty array when markdown has no visible content", () => {
+    expect(splitMarkdownSections("")).toEqual([]);
+    expect(splitMarkdownSections("   \n\n\t  ")).toEqual([]);
+    expect(splitMarkdownSections("///\n/// landscape\n///\n   ")).toEqual([]);
   });
 });
