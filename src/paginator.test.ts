@@ -7,7 +7,8 @@
 // browser renders the result without clipping lives outside this suite.
 
 import { describe, expect, it } from "vitest";
-import { splitListElement, splitTableElement } from "./paginator";
+import { buildPageLayouts, PageGeometry, splitListElement, splitTableElement } from "./paginator";
+import { DEFAULT_SETTINGS } from "./settings";
 
 // The inline splitter walks text nodes through Obsidian's activeDocument global,
 // and the table splitter builds a <tbody> through createEl. The real app provides
@@ -497,3 +498,70 @@ describe("splitTableElement — a row with more than one oversized cell", () => 
     expect(text(split[1])).toBe("HIgammadeltathreefour");
   });
 });
+
+describe("buildPageLayouts page geometry", () => {
+  it("builds standard layouts when pageGeometries is not provided", () => {
+    const pages = [[el("<p>Page 1</p>")], [el("<p>Page 2</p>")]];
+    const layouts = buildPageLayouts(pages, DEFAULT_SETTINGS, "Test Note");
+
+    expect(layouts).toHaveLength(2);
+    expect(layouts[0].pageNum).toBe(1);
+    expect(layouts[0].totalPages).toBe(2);
+    expect(layouts[0].pageNodes).toBe(pages[0]);
+    expect(layouts[0].orientation).toBeUndefined();
+    expect(layouts[0].pw).toBeUndefined();
+    expect(layouts[0].ph).toBeUndefined();
+    expect(layouts[0].contentW).toBeUndefined();
+    expect(layouts[0].contentH).toBeUndefined();
+
+    expect(layouts[1].pageNum).toBe(2);
+    expect(layouts[1].totalPages).toBe(2);
+    expect(layouts[1].pageNodes).toBe(pages[1]);
+    expect(layouts[1].orientation).toBeUndefined();
+    expect(layouts[1].pw).toBeUndefined();
+    expect(layouts[1].ph).toBeUndefined();
+    expect(layouts[1].contentW).toBeUndefined();
+    expect(layouts[1].contentH).toBeUndefined();
+  });
+
+  it("propagates page geometry with mixed portrait and landscape orientations", () => {
+    const pages = [[el("<p>Page 1 content</p>")], [el("<p>Page 2 content</p>")]];
+    const geometries: PageGeometry[] = [
+      {
+        orientation: "portrait",
+        pw: 595.28,
+        ph: 841.89,
+        contentW: 495.28,
+        contentH: 741.89,
+      },
+      {
+        orientation: "landscape",
+        pw: 841.89,
+        ph: 595.28,
+        contentW: 741.89,
+        contentH: 495.28,
+      },
+    ];
+
+    const layouts = buildPageLayouts(pages, DEFAULT_SETTINGS, "Test Note", geometries);
+
+    expect(layouts).toHaveLength(2);
+
+    expect(layouts[0].pageNum).toBe(1);
+    expect(layouts[0].totalPages).toBe(2);
+    expect(layouts[0].orientation).toBe("portrait");
+    expect(layouts[0].pw).toBe(595.28);
+    expect(layouts[0].ph).toBe(841.89);
+    expect(layouts[0].contentW).toBe(495.28);
+    expect(layouts[0].contentH).toBe(741.89);
+
+    expect(layouts[1].pageNum).toBe(2);
+    expect(layouts[1].totalPages).toBe(2);
+    expect(layouts[1].orientation).toBe("landscape");
+    expect(layouts[1].pw).toBe(841.89);
+    expect(layouts[1].ph).toBe(595.28);
+    expect(layouts[1].contentW).toBe(741.89);
+    expect(layouts[1].contentH).toBe(495.28);
+  });
+});
+
