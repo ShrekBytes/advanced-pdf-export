@@ -116,7 +116,7 @@ export const DEFAULT_CSS = `\
 }
 .mpdf-doc hr {
   border: none;
-  border-top: 0.5px solid rgb(from var(--accentColor) r g b / 0x44);
+  border-top: 0.5px solid rgb(from var(--accentColor) r g b / .27);
   margin: calc(var(--paragraphSpacing) * 1.5) 0;
 }
 .mpdf-doc img { 
@@ -152,12 +152,12 @@ export const DEFAULT_CSS = `\
   padding: 6px 10px;
   text-align: start;
   font-weight: 600;
-  border: 0.5px solid rgb(from var(--tableBorderColor) r g b / 0x33);
+  border: 0.5px solid rgb(from var(--tableBorderColor) r g b / .20);
   font-size: 0.9em;
 }
 .mpdf-doc td {
   padding: 5px 10px;
-  border: 0.5px solid rgb(from var(--tableBorderColor) r g b / 0x33));
+  border: 0.5px solid rgb(from var(--tableBorderColor) r g b / .20));
   vertical-align: top;
 }
 /* Markdown column alignment (:--:) arrives as an align attribute on th/td — a
@@ -188,11 +188,11 @@ export const DEFAULT_CSS = `\
   border-start-end-radius: 5px !important;
   border-end-end-radius: 5px !important;
   border-end-start-radius: 0 !important;
-  background: rgb(from var(--accentColor) r g b / 0x12) !important;
+  background: rgb(from var(--accentColor) r g b / .07) !important;
   margin: calc(var(--paragraphSpacing) * 1.2) 0 !important;
   padding: 0 !important;
   overflow: hidden !important;
-  box-shadow: inset 0 0 0 1px rgb(from var(--accentColor) r g b / 0x22) !important;
+  box-shadow: inset 0 0 0 1px rgb(from var(--accentColor) r g b / .13) !important;
   font-style: normal !important;
 }
 .mpdf-doc .callout-title {
@@ -200,8 +200,8 @@ export const DEFAULT_CSS = `\
   align-items: center !important;
   gap: 7px !important;
   padding: 7px 12px !important;
-  background: rgb(from var(--accentColor) r g b / 0x28) !important;
-  border-bottom: 1px solid rgb(from var(--accentColor) r g b / 0x33) !important;
+  background: rgb(from var(--accentColor) r g b / .16) !important;
+  border-bottom: 1px solid rgb(from var(--accentColor) r g b / .20) !important;
   font-family: var(--fontFamily) !important;
   font-size: 0.8em !important;
   font-weight: 800 !important;
@@ -241,7 +241,7 @@ export const DEFAULT_CSS = `\
 .mpdf-doc .callout-content > p:last-child  { margin-bottom: 0 !important; }
 /* Nested blockquotes inside callout content keep a subtler indent */
 .mpdf-doc .callout-content blockquote {
-  border-inline-start-color: rgb(from var(--accentColor) r g b / 0x66) !important;
+  border-inline-start-color: rgb(from var(--accentColor) r g b / .40) !important;
   background: transparent !important;
 }
 
