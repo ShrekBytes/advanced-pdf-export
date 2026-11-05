@@ -210,6 +210,7 @@ export class PDFExportSettingTab extends PluginSettingTab {
           "0.8": "Small (0.8×)", "0.88": "0.88×", "0.9": "Compact (0.9×)", "0.95": "0.95×",
           "1.0": "Normal (1.0×)", "1.05": "1.05×", "1.1": "Large (1.1×)", "1.2": "XLarge (1.2×)",
         }, { desc: "Multiplier applied to all heading sizes." }),
+        toggle("Justify text", "justifyText", "Align body paragraphs and list items to both the left and right margins."),
       ]),
 
       group("Background", [
