@@ -275,6 +275,12 @@ export function resolveCodeFont(s: PDFExportSettings): string {
 /** Builds the full `.mpdf-doc` stylesheet (typography, tables, callouts,
  *  mermaid, code blocks) shared verbatim by the preview shadow DOM and the
  *  export print HTML. */
+function formatFencedCss(content: string) : string {
+  const sections = [...content.matchAll(/```(css)?([\s\S]*?)```/g)].map( m => m[2].trim() );
+  const css = sections.join("\n\n").trim();
+  return css;
+}
+
 export function buildDocCSS(s: PDFExportSettings, isRTL = false): string {
   const hs = s.headingScale;
   const fontFamily = resolveFont(s);
@@ -282,7 +288,12 @@ export function buildDocCSS(s: PDFExportSettings, isRTL = false): string {
   const tableHeaderTextColor =
     hexLuminance(s.tableHeaderBg) < 0.35 ? "#fff" : s.headingColor;
   const codeCss = buildCodeBlockCSS(s);
-  const userCss = s.customCssEnabled ? s.currentCss : s.defaultCss ?? "";
+  let userCss = "";
+  if ( s.customCssEnabled ) {
+    userCss = formatFencedCss(s.currentCss);
+  } else {
+    userCss = formatFencedCss(s.defaultCss);
+  }
   return (`
   .mpdf-doc {
     --pageSize: ${s.pageSize};

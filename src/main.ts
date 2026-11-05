@@ -50,21 +50,23 @@ export default class MarkdownPDFPlugin extends Plugin {
       }),
     );
     this.addCommand({
+      id: 'toggle-custom-css',
+      name: "Toggle Custom CSS",
+      callback: async () => {
+        this.settings.customCssEnabled = !this.settings.customCssEnabled;
+        await this.saveSettings();
+      },
+    });
+    this.addCommand({
       id: "open-css-editor",
       name: "Open CSS Editor",
       callback: () => this.openCustomCssEditor(),
-    })
+    });
     this.addCommand({
       id: "restore-css-defaults",
       name: "Restore CSS Defaults",
       callback: () => this.restoreDefaultCss(),
-    })
-
-    this.addCommand({
-      id: "get-css",
-      name: "Get CSS",
-      callback: () => this.getCustomCssContent(),
-    })
+    });
 
     this.addSettingTab(new PDFExportSettingTab(this.app, this));
 
@@ -173,12 +175,6 @@ export default class MarkdownPDFPlugin extends Plugin {
   }
 
   async saveSettings() {
-    await this.saveData({
-      ...this.settings,
-      presetSnapshots: this.presetSnapshots,
-      lastSeenVersion: this.lastSeenVersion,
-    });
-
     if (!this.settings.customCssEnabled) {
       // If the user disables custom CSS, delete the file if it exists and delete the folder if it is now empty.
       
@@ -186,12 +182,19 @@ export default class MarkdownPDFPlugin extends Plugin {
       if (file instanceof TFile) {
         await this.app.vault.delete(file);
       }
-      const folder = this.app.vault.getAbstractFileByPath(this.settings.cssDocument.split("/").slice(0, -1).join("/"));
+      const folderPath = this.settings.cssDocument.split("/").slice(0, -1).join("/");
+      const folder = this.app.vault.getFolderByPath(folderPath);
       if (folder && folder instanceof TFolder && folder.children.length === 0) {
-        await this.app.vault.delete(folder);
+        await this.app.vault.delete(folder, true);
       }
+    } else {
+      this.getOrCreateCssFile();
     }
-
+    await this.saveData({
+      ...this.settings,
+      presetSnapshots: this.presetSnapshots,
+      lastSeenVersion: this.lastSeenVersion,
+    });
   }
 
   async saveSettingsAndRender() {
@@ -231,8 +234,12 @@ export default class MarkdownPDFPlugin extends Plugin {
   /** Opens the Custom CSS editor view. */
 
   async restoreDefaultCss(): Promise<void> {
-    const file = await this.getOrCreateCssFile();
-    await this.app.vault.modify(file, this.settings.defaultCss ?? "");
+    const css = this.settings.defaultCss;
+    if ( this.settings.customCssEnabled ) {
+      const file = await this.getOrCreateCssFile();
+      await this.app.vault.modify(file, css);
+    }
+    await this.applyCustomCssContent();
   }
 
   async getOrCreateCssFile(): Promise<TFile> {
@@ -249,11 +256,16 @@ export default class MarkdownPDFPlugin extends Plugin {
     const parts = path.split("/");
     parts.pop();
     const folderPath = parts.join("/");
-    console.log(folderPath, !this.app.vault.getAbstractFileByPath(folderPath));
     if ( folderPath && !this.app.vault.getAbstractFileByPath(folderPath) ) {
       await this.app.vault.createFolder(folderPath);
     }
-    file = await this.app.vault.create(path, this.settings.defaultCss ?? "");
+    let css = this.settings.defaultCss;
+    if ( this.settings.customCssEnabled ) {
+      if ( this.settings.currentCss.length > 0 ) {
+        css = this.settings.currentCss;
+      }
+    }
+    file = await this.app.vault.create(path, css);
     return file as TFile;
   }
 
@@ -275,13 +287,11 @@ export default class MarkdownPDFPlugin extends Plugin {
       const file = await this.getOrCreateCssFile();
       content = await this.app.vault.read(file);
     }
-    const sections = [...content.matchAll(/```(css)?([\s\S]*?)```/g)].map( m => m[2].trim() );
-    const css = sections.join("\n\n").trim();
-    return css;
+    return content;
   }
 
   async applyCustomCssContent(): Promise<void> {
-    if (!this.settings.customCssEnabled) return;
+    if ( !this.settings.customCssEnabled ) return;
     const css = await this.getCustomCssContent();
     this.settings.currentCss = css;
     await this.saveSettings();
