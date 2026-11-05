@@ -69,3 +69,63 @@ describe("buildDocCSS image radius", () => {
     expect(clampImageRadius(NaN)).toBe(0);
   });
 });
+
+describe("buildDocCSS callout colors", () => {
+  function ruleBodyFor(css: string, selector: string): string | undefined {
+    for (const [, selectors, body] of css.replace(/\/\*[\s\S]*?\*\//g, "").matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+      if (!selectors.split(",").some((s) => s.trim() === selector)) continue;
+      return body.trim();
+    }
+    return undefined;
+  }
+
+  it("omits per-type callout rules by default", () => {
+    const css = buildDocCSS({ ...DEFAULT_SETTINGS });
+    expect(css).not.toContain("[data-callout=");
+  });
+
+  it("emits rules for all canonical callout types and their Obsidian aliases when enabled", () => {
+    const css = buildDocCSS({ ...DEFAULT_SETTINGS, useCalloutColors: true });
+    const canonicalTypes = ["tip", "warning", "success", "question", "info", "note", "abstract", "danger", "bug", "example", "quote"];
+    const aliases = ["hint", "important", "caution", "check", "faq", "todo", "error", "cite"];
+    for (const type of [...canonicalTypes, ...aliases]) {
+      expect(ruleBodyFor(css, `.mpdf-doc .callout[data-callout="${type}" i]`)).toBeDefined();
+    }
+  });
+
+  it("applies custom callout colors with alpha suffixes to border, title, icon, and backgrounds", () => {
+    const css = buildDocCSS({
+      ...DEFAULT_SETTINGS,
+      useCalloutColors: true,
+      calloutTipColor: "#123456",
+    });
+    const baseBody = ruleBodyFor(css, '.mpdf-doc .callout[data-callout="tip" i]') ?? "";
+    const titleBody = ruleBodyFor(css, '.mpdf-doc .callout[data-callout="tip" i] .callout-title') ?? "";
+    const iconBody = ruleBodyFor(css, '.mpdf-doc .callout[data-callout="tip" i] .callout-icon') ?? "";
+    const svgBody = ruleBodyFor(css, '.mpdf-doc .callout[data-callout="tip" i] .callout-icon svg') ?? "";
+
+    expect(baseBody).toContain("border-inline-start-color: #123456 !important");
+    expect(baseBody).toContain("background: #12345612 !important");
+    expect(titleBody).toContain("background: #12345628 !important");
+    expect(titleBody).toContain("color: #123456 !important");
+    expect(iconBody).toContain("color: #123456 !important");
+    expect(svgBody).toContain("stroke: #123456 !important");
+  });
+
+  it("expands 3-digit hex colors to 6 digits and falls back to DEFAULT_SETTINGS when invalid", () => {
+    const css = buildDocCSS({
+      ...DEFAULT_SETTINGS,
+      useCalloutColors: true,
+      calloutWarningColor: "#f0a",
+      calloutDangerColor: "not-a-hex",
+    });
+    const warningBody = ruleBodyFor(css, '.mpdf-doc .callout[data-callout="warning" i]') ?? "";
+    const dangerBody = ruleBodyFor(css, '.mpdf-doc .callout[data-callout="danger" i]') ?? "";
+
+    expect(warningBody).toContain("border-inline-start-color: #ff00aa !important");
+    expect(warningBody).toContain("background: #ff00aa12 !important");
+    expect(dangerBody).toContain(`border-inline-start-color: ${DEFAULT_SETTINGS.calloutDangerColor} !important`);
+    expect(dangerBody).toContain(`background: ${DEFAULT_SETTINGS.calloutDangerColor}12 !important`);
+  });
+});
+
