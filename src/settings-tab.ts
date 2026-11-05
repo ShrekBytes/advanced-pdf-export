@@ -275,6 +275,39 @@ export class PDFExportSettingTab extends PluginSettingTab {
         ],
       },
 
+      {
+        ...group("Callouts", [
+          toggle("Custom callout colors", "useCalloutColors",
+            "Use distinct, customizable colors for each callout type instead of the single accent color."),
+          color("Note", "calloutNoteColor", () => s.useCalloutColors),
+          color("Info / Todo", "calloutInfoColor", () => s.useCalloutColors),
+          color("Tip / Hint / Important", "calloutTipColor", () => s.useCalloutColors),
+          color("Abstract / Summary / TLDR", "calloutAbstractColor", () => s.useCalloutColors),
+          color("Success / Check / Done", "calloutSuccessColor", () => s.useCalloutColors),
+          color("Question / Help / FAQ", "calloutQuestionColor", () => s.useCalloutColors),
+          color("Warning / Caution / Attention", "calloutWarningColor", () => s.useCalloutColors),
+          color("Danger / Error / Failure", "calloutDangerColor", () => s.useCalloutColors),
+          color("Bug", "calloutBugColor", () => s.useCalloutColors),
+          color("Example", "calloutExampleColor", () => s.useCalloutColors),
+          color("Quote / Cite", "calloutQuoteColor", () => s.useCalloutColors),
+        ]),
+        extraButtons: [
+          (extra) => {
+            const host = extra.extraSettingsEl.parentElement;
+            extra.extraSettingsEl.detach();
+            if (!host) return;
+            new ButtonComponent(host)
+              .setButtonText("Reset")
+              .setTooltip("Reset callout colors to defaults")
+              .onClick(() => {
+                this.plugin.resetCalloutColors();
+                void this.markDirty();
+                this.update();
+              });
+          },
+        ],
+      },
+
       group("Header", [
         toggle("Show header", "showHeader"),
         toggle("Show on first page", "showHeaderOnFirstPage", "When off, the header is hidden on page 1. Useful for title pages."),
