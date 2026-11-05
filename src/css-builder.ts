@@ -9,7 +9,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { App, TFile, requestUrl } from "obsidian";
-import { PAGE_SIZES, PDFExportSettings } from "./settings";
+import { PAGE_SIZES, PDFExportSettings, CALLOUT_COLOR_KEYS, DEFAULT_SETTINGS } from "./settings";
 
 // ─── Small utilities ──────────────────────────────────────────────────────────
 
@@ -272,6 +272,56 @@ export function resolveCodeFont(s: PDFExportSettings): string {
     : s.codeFontFamily;
 }
 
+/** Canonical callout color keys mapped to their official Obsidian data-callout type names and aliases. */
+const CALLOUT_TYPE_ALIASES: Record<(typeof CALLOUT_COLOR_KEYS)[number], readonly string[]> = {
+  calloutNoteColor:     ["note"],
+  calloutInfoColor:     ["info", "todo"],
+  calloutTipColor:      ["tip", "hint", "important"],
+  calloutAbstractColor: ["abstract", "summary", "tldr"],
+  calloutSuccessColor:  ["success", "check", "done"],
+  calloutQuestionColor: ["question", "help", "faq"],
+  calloutWarningColor:  ["warning", "caution", "attention"],
+  calloutDangerColor:   ["danger", "error", "failure", "fail", "missing"],
+  calloutBugColor:      ["bug"],
+  calloutExampleColor:  ["example"],
+  calloutQuoteColor:    ["quote", "cite"],
+};
+
+/** Normalises a 3- or 6-digit hex color to #rrggbb so 2-digit alpha suffixes can be appended safely. */
+function normalizeHex6(hex: string, fallback: string): string {
+  const trimmed = (hex ?? "").trim();
+  const expanded = trimmed.replace(/^#([\da-f])([\da-f])([\da-f])$/i, (_, r, g, b) => `#${r}${r}${g}${g}${b}${b}`);
+  return /^#[\da-f]{6}$/i.test(expanded) ? expanded : fallback;
+}
+
+/** Builds per-type callout CSS rules when `s.useCalloutColors` is enabled. */
+function buildCalloutTypeCSS(s: PDFExportSettings): string {
+  if (!s.useCalloutColors) return "";
+  return CALLOUT_COLOR_KEYS.map((key) => {
+    const c = normalizeHex6(s[key], DEFAULT_SETTINGS[key]);
+    const types = CALLOUT_TYPE_ALIASES[key];
+    const baseSel = types.map((t) => `.mpdf-doc .callout[data-callout="${t}" i]`).join(", ");
+    const titleSel = types.map((t) => `.mpdf-doc .callout[data-callout="${t}" i] .callout-title`).join(", ");
+    const iconSel = types.map((t) => `.mpdf-doc .callout[data-callout="${t}" i] .callout-icon`).join(", ");
+    const svgSel = types.map((t) => `.mpdf-doc .callout[data-callout="${t}" i] .callout-icon svg`).join(", ");
+    const bqSel = types.map((t) => `.mpdf-doc .callout[data-callout="${t}" i] .callout-content blockquote`).join(", ");
+    return `
+  ${baseSel} {
+    border-inline-start-color: ${c} !important;
+    background: ${c}12 !important;
+    box-shadow: inset 0 0 0 1px ${c}22 !important;
+  }
+  ${titleSel} {
+    background: ${c}28 !important;
+    border-bottom-color: ${c}33 !important;
+    color: ${c} !important;
+  }
+  ${iconSel} { color: ${c} !important; }
+  ${svgSel} { stroke: ${c} !important; }
+  ${bqSel} { border-inline-start-color: ${c}66 !important; }`;
+  }).join("\n");
+}
+
 /** Builds the full `.mpdf-doc` stylesheet (typography, tables, callouts,
  *  mermaid, code blocks) shared verbatim by the preview shadow DOM and the
  *  export print HTML. */
@@ -445,6 +495,7 @@ export function buildDocCSS(s: PDFExportSettings, isRTL = false): string {
     border-inline-start-color: ${s.accentColor}66 !important;
     background: transparent !important;
   }
+  ${buildCalloutTypeCSS(s)}
 
   /* Mermaid diagrams — centre the SVG and prevent it overflowing the content
    * column.  The <style> block inside the SVG is intentionally left untouched;
