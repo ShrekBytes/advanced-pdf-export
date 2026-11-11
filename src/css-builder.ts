@@ -276,7 +276,7 @@ export function resolveCodeFont(s: PDFExportSettings): string {
  *  mermaid, code blocks) shared verbatim by the preview shadow DOM and the
  *  export print HTML. */
 function formatFencedCss(content: string) : string {
-  const sections = [...content.matchAll(/```css([\s\S]*?)```/g)].map( m => m[2].trim() );
+  const sections = [...content.matchAll(/```css([\s\S]*?)```/g)].map( m => m[1].trim() );
   const css = sections.join("\n\n").trim();
   return css;
 }
