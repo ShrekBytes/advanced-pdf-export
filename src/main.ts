@@ -6,7 +6,7 @@
 // PDFExportSettingTab (settings-tab.ts) for everything UI-related.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { Menu, Plugin, TFile } from "obsidian";
+import { Menu, Notice, Plugin, TFile, TFolder } from "obsidian";
 import {
   DocStyle, PDFExportSettings, PRESETS, DEFAULT_SETTINGS, extractDocStyle, PRESET_COLOR_KEYS,
 } from "./settings";
@@ -16,6 +16,7 @@ import { warmUpMathJax } from "./markdown";
 import { pendingRelease, releaseHistory } from "./changelog";
 import { ReleaseNotesModal } from "./changelog-modal";
 
+
 export default class MarkdownPDFPlugin extends Plugin {
   declare settings: PDFExportSettings;
   activeModal: PDFExportModal | null = null;
@@ -24,7 +25,7 @@ export default class MarkdownPDFPlugin extends Plugin {
   /** The last version whose release notes were shown. Persisted beside the
    *  settings; undefined until the plugin has shown notes for some version. */
   lastSeenVersion: string | undefined;
-
+  
   async onload() {
     await this.loadSettings();
     // Deferred past startup: opening a window from onload races Obsidian's own
@@ -48,7 +49,27 @@ export default class MarkdownPDFPlugin extends Plugin {
         );
       }),
     );
+    this.addCommand({
+      id: 'toggle-custom-css',
+      name: "Toggle Custom CSS",
+      callback: async () => {
+        this.settings.customCssEnabled = !this.settings.customCssEnabled;
+        await this.saveSettings();
+      },
+    });
+    this.addCommand({
+      id: "open-css-editor",
+      name: "Open CSS Editor",
+      callback: () => this.openCustomCssEditor(),
+    });
+    this.addCommand({
+      id: "restore-css-defaults",
+      name: "Restore CSS Defaults",
+      callback: () => this.restoreDefaultCss(),
+    });
+
     this.addSettingTab(new PDFExportSettingTab(this.app, this));
+
   }
 
   onunload() {
@@ -154,6 +175,21 @@ export default class MarkdownPDFPlugin extends Plugin {
   }
 
   async saveSettings() {
+    if (!this.settings.customCssEnabled) {
+      // If the user disables custom CSS, delete the file if it exists and delete the folder if it is now empty.
+      
+      const file = this.app.vault.getAbstractFileByPath(this.settings.cssDocument);
+      if (file instanceof TFile) {
+        await this.app.vault.delete(file);
+      }
+      const folderPath = this.settings.cssDocument.split("/").slice(0, -1).join("/");
+      const folder = this.app.vault.getFolderByPath(folderPath);
+      if (folder && folder instanceof TFolder && folder.children.length === 0) {
+        await this.app.vault.delete(folder, true);
+      }
+    } else {
+      this.getOrCreateCssFile();
+    }
     await this.saveData({
       ...this.settings,
       presetSnapshots: this.presetSnapshots,
@@ -193,5 +229,71 @@ export default class MarkdownPDFPlugin extends Plugin {
         snap[k] = p[k];
       }
     }
+  }
+
+  /** Opens the Custom CSS editor view. */
+
+  async restoreDefaultCss(): Promise<void> {
+    const css = this.settings.defaultCss;
+    if ( this.settings.customCssEnabled ) {
+      const file = await this.getOrCreateCssFile();
+      await this.app.vault.modify(file, css);
+    }
+    await this.applyCustomCssContent();
+  }
+
+  async getOrCreateCssFile(): Promise<TFile> {
+    if ( !this.settings.customCssEnabled ) {
+      new Notice("Custom CSS is disabled. Enable it in the plugin settings to edit the CSS.");
+      throw new Error("Custom CSS is disabled");
+    }
+    const path = this.settings.cssDocument;
+    let file = this.app.vault.getAbstractFileByPath(path);
+
+    if ( file instanceof TFile ) {
+      return file;
+    }
+    const parts = path.split("/");
+    parts.pop();
+    const folderPath = parts.join("/");
+    if ( folderPath && !this.app.vault.getAbstractFileByPath(folderPath) ) {
+      await this.app.vault.createFolder(folderPath);
+    }
+    let css = this.settings.defaultCss;
+    if ( this.settings.customCssEnabled ) {
+      if ( this.settings.currentCss.length > 0 ) {
+        css = this.settings.currentCss;
+      }
+    }
+    file = await this.app.vault.create(path, css);
+    return file as TFile;
+  }
+
+  async openCustomCssEditor(): Promise<void> {
+    if ( !this.settings.customCssEnabled ) {
+      new Notice("Custom CSS is disabled. Enable it in the plugin settings to edit the CSS.");
+      return;
+    }
+    const file = await this.getOrCreateCssFile();
+    const leaf = this.app.workspace.getLeaf(true);
+    await leaf.openFile(file);
+  }
+
+  async getCustomCssContent(): Promise<string> {
+    let content = "";
+    if ( !this.settings.customCssEnabled ) {
+      content =  this.settings.defaultCss ?? "";
+    } else {
+      const file = await this.getOrCreateCssFile();
+      content = await this.app.vault.read(file);
+    }
+    return content;
+  }
+
+  async applyCustomCssContent(): Promise<void> {
+    if ( !this.settings.customCssEnabled ) return;
+    const css = await this.getCustomCssContent();
+    this.settings.currentCss = css;
+    await this.saveSettings();
   }
 }

@@ -12,9 +12,10 @@
 import {
   App, PluginSettingTab, ButtonComponent,
   SettingDefinitionItem, SettingDefinitionControl, SettingDefinitionGroup, SettingGroupItem,
+  ExtraButtonComponent,
 } from "obsidian";
 import type MarkdownPDFPlugin from "./main";
-import { PAGE_SIZES, PRESETS } from "./settings";
+import { DEFAULT_SETTINGS, PAGE_SIZES, PRESETS } from "./settings";
 import { CODE_THEMES } from "./css-builder";
 
 // Settings whose values are numbers but are edited via a curated dropdown of
@@ -108,8 +109,17 @@ export class PDFExportSettingTab extends PluginSettingTab {
 
     const fontSizeOptions: Record<string, string> = {};
     ["10", "11", "12", "13", "14", "15", "16"].forEach((v) => { fontSizeOptions[v] = v + "px"; });
+    
 
     return [
+      // Not a setting — a way back into the release notes after the update
+      // popup has been dismissed. Lives at the end of the tab because it is
+      // about the plugin rather than about any one export.
+      {
+        name: "What's new",
+        desc: "See what changed in the most recent versions.",
+        action: () => this.plugin.openReleaseNotes(),
+      },
       group("Style Preset", [
         {
           name: "Preset",
@@ -332,15 +342,30 @@ export class PDFExportSettingTab extends PluginSettingTab {
         toggle("Include PDF outline (bookmarks)", "includeOutline",
           "Embeds a bookmark tree into the exported PDF. Most PDF readers display it in a side panel for quick navigation."),
       ]),
-
-      // Not a setting — a way back into the release notes after the update
-      // popup has been dismissed. Lives at the end of the tab because it is
-      // about the plugin rather than about any one export.
-      {
-        name: "What's new",
-        desc: "See what changed in the most recent versions.",
-        action: () => this.plugin.openReleaseNotes(),
-      },
+      group("Custom CSS", [
+        {
+          name: "Enable Custom CSS",
+          desc: "Use the default Advanced PDF Export CSS when off, otherwise creates a vault file with editable CSS.",
+          control: {
+            type: "toggle", 
+            key: "customCssEnabled"
+          }
+        },
+        {
+          name : "Edit Custom CSS",
+          desc : "Edit the Custom CSS used in the Export Modal.",
+          action : () => {
+            this.plugin.openCustomCssEditor();
+          },
+        },
+        {
+          name : "Restore Default CSS",
+          desc : "Restore the default CSS used in the Export Modal.",
+          action : () => {
+            this.plugin.restoreDefaultCss();
+          },
+        }
+      ]),
     ];
   }
 }

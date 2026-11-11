@@ -7,7 +7,7 @@
 // *turns* these settings into CSS lives in css-builder.ts; anything that
 // *edits* them lives in settings-tab.ts.
 // ─────────────────────────────────────────────────────────────────────────────
-
+import { DEFAULT_CSS } from "./default-css";
 export const PAGE_SIZES: Record<string, { w: number; h: number }> = {
   A4:     { w: 794,  h: 1123 },
   A3:     { w: 1123, h: 1587 },
@@ -125,6 +125,16 @@ export interface PDFExportSettings extends DocStyle {
   /** When true, the save dialog opens in the note's own folder with the note's
    *  file name pre-filled as ".pdf". Ignored when there is no source note. */
   prefillSaveLocation: boolean;
+
+  // ── Custom CSS for .mpdf-doc ────────────────────────────────────────────────
+  /** Toggle for adding the ability to modify the built in CSS for export.
+   * The path shouldn't be changed... but it can be, I guess (no settings-tab for it)
+   * defaultCSS cannot be changed, but currentCSS can be modified by the user.
+  */
+   cssDocument : string;
+   customCssEnabled : boolean;
+   defaultCss : string;
+   currentCss : string;
 }
 
 // ─── Style Presets ────────────────────────────────────────────────────────────
@@ -372,6 +382,11 @@ export const DEFAULT_SETTINGS: PDFExportSettings = {
   includeOutline: true,
   // Save location
   prefillSaveLocation: true,
+  // cssDocument
+  cssDocument: "_advanced-pdf-export/export.css.md",
+  customCssEnabled: false,
+  defaultCss : DEFAULT_CSS,
+  currentCss : DEFAULT_CSS,
 };
 
 /** Color pickers in the Colors settings group. Used to reset only those

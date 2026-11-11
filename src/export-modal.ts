@@ -508,6 +508,7 @@ export class PDFExportModal extends Modal {
   }
 
   private async doRender(token: number) {
+    await this.plugin.applyCustomCssContent();
     const s = this.plugin.settings;
     let md = normalizeMarkdown(this.editorEl.value);
 
