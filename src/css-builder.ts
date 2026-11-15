@@ -53,6 +53,16 @@ export function clampImageRadius(v: unknown): number {
   return Math.min(100, Math.max(0, n));
 }
 
+/** Adds an alpha channel to a hex color, expanding shorthand #RGB first. */
+export function withAlpha(color: string, alpha: string): string {
+  const match = /^#([\da-f]{3}|[\da-f]{6})$/i.exec(color);
+  if (!match || !/^[\da-f]{2}$/i.test(alpha)) return color;
+  const rgb = match[1].length === 3
+    ? match[1].split("").map((c) => c + c).join("")
+    : match[1];
+  return `#${rgb}${alpha}`;
+}
+
 /** Converts a vault-relative path or bare filename to an app:// resource URL,
  *  or passes https:// / data: URLs through unchanged. Returns "" for blank input. */
 export function resolveImageUrl(app: App, imagePath: string): string {
@@ -330,6 +340,41 @@ export function buildDocCSS(s: PDFExportSettings, isRTL = false): string {
   .mpdf-doc p { margin: 0 0 ${s.paragraphSpacing}em; }
   .mpdf-doc ul, .mpdf-doc ol { padding-inline-start: 1.4em; margin: 0 0 ${s.paragraphSpacing}em; }
   .mpdf-doc li { margin-bottom: 0.2em; line-height: ${s.lineHeight}; }
+  .mpdf-doc li:has(input[type="checkbox"]) { list-style: none; }
+  .mpdf-doc input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 0.9em;
+    height: 0.9em;
+    margin: 0;
+    margin-inline-end: 0.45em;
+    vertical-align: -0.1em;
+    border: 1.5px solid ${withAlpha(s.bodyColor, "b3")};
+    border-radius: 3px;
+    background: transparent;
+    display: inline-grid;
+    place-content: center;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .mpdf-doc input[type="checkbox"]::after {
+    content: "";
+    width: 0.72em;
+    height: 0.72em;
+    background: ${s.pageBackground};
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='m4 12 5 5L20 6' fill='none' stroke='%23000' stroke-linecap='round' stroke-linejoin='round' stroke-width='3'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='m4 12 5 5L20 6' fill='none' stroke='%23000' stroke-linecap='round' stroke-linejoin='round' stroke-width='3'/%3E%3C/svg%3E") center / contain no-repeat;
+    transform: scale(0);
+  }
+  .mpdf-doc input[type="checkbox"]:checked {
+    background: ${s.accentColor};
+    border: 1.5px solid ${withAlpha(s.accentColor, "b3")};
+  }
+  .mpdf-doc input[type="checkbox"]:checked::after { transform: scale(1); }
+  .mpdf-doc li:has(> input[type="checkbox"]:checked) {
+    color: ${withAlpha(s.bodyColor, "8c")};
+    text-decoration: line-through;
+  }
   .mpdf-doc blockquote {
     border-inline-start: 3px solid ${s.blockquoteBorderColor};
     background: ${s.blockquoteBg};
