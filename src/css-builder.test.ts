@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildDocCSS, clampImageRadius } from "./css-builder";
+import { buildDocCSS, clampImageRadius, withAlpha } from "./css-builder";
 import { DEFAULT_SETTINGS } from "./settings";
 
 /** The `text-align` declared by the rule whose selector list contains `selector`,
@@ -67,5 +67,48 @@ describe("buildDocCSS image radius", () => {
     expect(clampImageRadius(-5)).toBe(0);
     expect(clampImageRadius(undefined)).toBe(0);
     expect(clampImageRadius(NaN)).toBe(0);
+  });
+});
+
+describe("buildDocCSS task checkboxes", () => {
+  const settings = {
+    ...DEFAULT_SETTINGS,
+    accentColor: "#123456",
+    bodyColor: "#654321",
+    pageBackground: "#abcdef",
+  };
+
+  it("styles unchecked boxes and keeps task-list indentation", () => {
+    const css = buildDocCSS(settings);
+    expect(css).toContain('.mpdf-doc li:has(input[type="checkbox"]) { list-style: none; }');
+    expect(css).toContain("border: 1.5px solid #654321b3");
+    expect(css).toContain("border-radius: 3px");
+    expect(css).toContain("background: transparent");
+  });
+
+  it("uses the page background for the checkmark and accent for checked boxes", () => {
+    const css = buildDocCSS(settings);
+    expect(css).toContain("background: #abcdef");
+    expect(css).toContain("data:image/svg+xml");
+    expect(css).toContain("background: #123456");
+    expect(css).toContain("border: 1.5px solid #123456b3");
+  });
+
+  it("mutes and strikes only the task whose direct checkbox is checked", () => {
+    const css = buildDocCSS(settings);
+    expect(css).toContain(
+      '.mpdf-doc li:has(> input[type="checkbox"]:checked) {',
+    );
+    expect(css).not.toContain(
+      '.mpdf-doc li:has(input[type="checkbox"]:checked) {',
+    );
+    expect(css).toContain("color: #6543218c");
+    expect(css).toContain("text-decoration: line-through");
+  });
+});
+
+describe("withAlpha", () => {
+  it("expands shorthand hex before adding alpha", () => {
+    expect(withAlpha("#111", "b3")).toBe("#111111b3");
   });
 });
