@@ -214,75 +214,42 @@ describe("splitMarkdownSections", () => {
     ]);
   });
 
-  it("handles English keywords (/// landscape, /// portrait)", () => {
+  it("handles /// landscape and /// portrait directives case-insensitively", () => {
     const md = [
       "Intro",
       "/// landscape",
       "Landscape page",
       "/// portrait",
       "Portrait page",
+      "/// LANDSCAPE",
+      "Uppercase landscape",
+      "/// Portrait",
+      "Mixed-case portrait",
     ].join("\n");
 
     expect(splitMarkdownSections(md)).toEqual([
       { content: "Intro", orientation: "portrait" },
       { content: "Landscape page", orientation: "landscape" },
       { content: "Portrait page", orientation: "portrait" },
+      { content: "Uppercase landscape", orientation: "landscape" },
+      { content: "Mixed-case portrait", orientation: "portrait" },
     ]);
   });
 
-  it("handles Spanish keywords (/// horizontal, /// vertical, /// apaisado, /// paisaje, /// retrato)", () => {
+  it("ignores non-standard keywords and extra words after ///", () => {
     const md = [
-      "Start portrait",
+      "Start",
       "/// horizontal",
-      "Section horizontal",
-      "/// vertical",
-      "Section vertical",
+      "Still same page",
       "/// apaisado",
-      "Section apaisado",
-      "/// retrato",
-      "Section retrato",
-      "/// paisaje",
-      "Section paisaje",
+      "/// vertical",
+      "/// custom",
+      "/// landscape extra",
+      "End",
     ].join("\n");
 
     expect(splitMarkdownSections(md)).toEqual([
-      { content: "Start portrait", orientation: "portrait" },
-      { content: "Section horizontal", orientation: "landscape" },
-      { content: "Section vertical", orientation: "portrait" },
-      { content: "Section apaisado", orientation: "landscape" },
-      { content: "Section retrato", orientation: "portrait" },
-      { content: "Section paisaje", orientation: "landscape" },
-    ]);
-  });
-
-  it("handles case-insensitive directives (/// LANDSCAPE, /// Horizontal, etc.)", () => {
-    const md = [
-      "Section 1",
-      "/// LANDSCAPE",
-      "Section 2",
-      "/// PORTRAIT",
-      "Section 3",
-      "/// Horizontal",
-      "Section 4",
-      "/// Vertical",
-      "Section 5",
-      "/// APAISADO",
-      "Section 6",
-      "/// Retrato",
-      "Section 7",
-      "/// PaiSaje",
-      "Section 8",
-    ].join("\n");
-
-    expect(splitMarkdownSections(md)).toEqual([
-      { content: "Section 1", orientation: "portrait" },
-      { content: "Section 2", orientation: "landscape" },
-      { content: "Section 3", orientation: "portrait" },
-      { content: "Section 4", orientation: "landscape" },
-      { content: "Section 5", orientation: "portrait" },
-      { content: "Section 6", orientation: "landscape" },
-      { content: "Section 7", orientation: "portrait" },
-      { content: "Section 8", orientation: "landscape" },
+      { content: md, orientation: "portrait" },
     ]);
   });
 

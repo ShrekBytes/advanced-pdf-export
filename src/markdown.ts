@@ -59,9 +59,7 @@ export interface MarkdownSection {
   orientation: "portrait" | "landscape";
 }
 
-const LANDSCAPE_KEYWORDS = new Set(["landscape", "horizontal", "apaisado", "paisaje"]);
-const PORTRAIT_KEYWORDS = new Set(["portrait", "vertical", "retrato"]);
-const PAGE_BREAK_RE = /^[ \t]*\/{3}(?!\/)(?:[ \t]*(\S+))?[ \t]*$/;
+const PAGE_BREAK_RE = /^[ \t]*\/{3}(?:[ \t]+(landscape|portrait))?[ \t]*$/i;
 
 /** Splits on `///` manual page-break markers, trimming and dropping empty sections. */
 export function splitMarkdownSections(
@@ -83,10 +81,8 @@ export function splitMarkdownSections(
       currentLines = [];
 
       const keyword = match[1]?.toLowerCase();
-      if (keyword && LANDSCAPE_KEYWORDS.has(keyword)) {
-        activeOrientation = "landscape";
-      } else if (keyword && PORTRAIT_KEYWORDS.has(keyword)) {
-        activeOrientation = "portrait";
+      if (keyword === "landscape" || keyword === "portrait") {
+        activeOrientation = keyword;
       }
     } else {
       currentLines.push(line);
