@@ -130,7 +130,10 @@ describe("buildDocCSS callout colors", () => {
   it("emits rules for all canonical callout types and their Obsidian aliases when enabled", () => {
     const css = buildDocCSS({ ...DEFAULT_SETTINGS, useCalloutColors: true });
     const canonicalTypes = ["tip", "warning", "success", "question", "info", "note", "abstract", "danger", "bug", "example", "quote"];
-    const aliases = ["hint", "important", "caution", "check", "faq", "todo", "error", "cite"];
+    const aliases = [
+      "todo", "hint", "important", "summary", "tldr", "check", "done",
+      "help", "faq", "caution", "attention", "error", "failure", "fail", "missing", "cite",
+    ];
     for (const type of [...canonicalTypes, ...aliases]) {
       expect(ruleBodyFor(css, `.mpdf-doc .callout[data-callout="${type}" i]`)).toBeDefined();
     }
