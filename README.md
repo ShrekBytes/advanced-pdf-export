@@ -32,7 +32,7 @@ If this plugin saves you time, consider **[supporting the project](https://shrek
 - **Mermaid diagrams** — renders flowcharts, sequence diagrams, and all other Mermaid diagram types
 - **Page breaks** — `///` on its own line for a manual break; optionally auto-insert before every H1 or H2
 - **Page size & orientation** — A4, A3, A5, Letter, Legal, or a fully custom size (mm) × Portrait / Landscape
-- **Full layout control** — margins, font family/size/line height, paragraph spacing, heading scale, colors
+- **Full layout control** — margins, font family/size/line height, paragraph spacing, heading scale, text alignment, colors
 - **Page frame** — optional border drawn around the outer edge of every page (solid, dashed, dotted, double, groove, or ridge)
 - **Background** — solid color or a background image with fit, scope (full page or content area only), and opacity controls
 - **Header & footer** — custom text, customizable page numbers (`{{current}}` / `{{total}}` template placeholders), alignment, font size/color, optional banner image, and first-page suppression
@@ -89,6 +89,8 @@ Search for **Advanced PDF Export** in **Settings → Community Plugins → Brows
 
 **Change style or page settings** — use the **Style**, **Size**, and **Orient** dropdowns in the topbar. Changes re-render automatically.
 
+**Align text globally or per block** — choose the default document alignment in **Settings → Advanced PDF Export → Typography → Text alignment** (`Auto`, `Left`, `Center`, `Right`, or `Justify`). `Auto` keeps the note's natural reading order. Put `%% align: justify %%` (or `left`, `center`, `right`) on its own line above a block to align only that paragraph, heading, list, quote, or callout. Standard HTML comments such as `<!-- align: center -->` work the same way. Wrap several blocks between `%% align-start: justify %%` and `%% align-end %%` to align a whole range, or use the **Align** menu in the topbar. Comment directives stay hidden in Obsidian Reading View.
+
 **Export** — click **⬇ Export PDF** to open a native save dialog and write the PDF to disk. The dialog opens pre-filled in the note's own folder with the note's file name as `.pdf`, so there's nothing to re-pick each time; turn off **Settings → Output → Pre-fill save location** if you'd rather it start from scratch. Click the **▾** next to the button for **Print…**, which sends the document to any installed printer or your OS's own "Save as PDF" dialog instead.
 
 **Open settings** — click the ⚙ icon in the topbar, or go to **Settings → Advanced PDF Export**.
@@ -137,6 +139,7 @@ All settings take effect after closing the settings panel.
 | Line height | Tight (1.4) → Double (2.0) |
 | Paragraph spacing | None → Wide (1em) |
 | Heading scale | 0.8× → 1.2× multiplier applied to all heading sizes |
+| Text alignment | Auto, Left, Center, Right, or Justify. Sets the default alignment for body paragraphs and list items, and can be overridden per block in markdown |
 
 ### Background
 
