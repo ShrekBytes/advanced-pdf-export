@@ -125,6 +125,21 @@ export interface PDFExportSettings extends DocStyle {
   /** When true, the save dialog opens in the note's own folder with the note's
    *  file name pre-filled as ".pdf". Ignored when there is no source note. */
   prefillSaveLocation: boolean;
+
+  // ── Callout colors ────────────────────────────────────────────────────────
+  /** When true, individual callout types use their dedicated color below instead of accentColor. */
+  useCalloutColors: boolean;
+  calloutNoteColor: string;
+  calloutInfoColor: string;
+  calloutTipColor: string;
+  calloutAbstractColor: string;
+  calloutSuccessColor: string;
+  calloutQuestionColor: string;
+  calloutWarningColor: string;
+  calloutDangerColor: string;
+  calloutBugColor: string;
+  calloutExampleColor: string;
+  calloutQuoteColor: string;
 }
 
 // ─── Style Presets ────────────────────────────────────────────────────────────
@@ -372,6 +387,19 @@ export const DEFAULT_SETTINGS: PDFExportSettings = {
   includeOutline: true,
   // Save location
   prefillSaveLocation: true,
+  // Callout colors
+  useCalloutColors: false,
+  calloutNoteColor: "#2563eb",
+  calloutInfoColor: "#0284c7",
+  calloutTipColor: "#0d9488",
+  calloutAbstractColor: "#0891b2",
+  calloutSuccessColor: "#16a34a",
+  calloutQuestionColor: "#7c3aed",
+  calloutWarningColor: "#ea580c",
+  calloutDangerColor: "#dc2626",
+  calloutBugColor: "#e11d48",
+  calloutExampleColor: "#9333ea",
+  calloutQuoteColor: "#64748b",
 };
 
 /** Color pickers in the Colors settings group. Used to reset only those
@@ -380,6 +408,14 @@ export const PRESET_COLOR_KEYS = [
   "accentColor", "bodyColor", "boldColor", "headingColor",
   "blockquoteBg", "blockquoteBorderColor", "tableHeaderBg", "tableBorderColor", "codeBackground",
 ] as const satisfies readonly (keyof DocStyle)[];
+
+/** Color pickers in the Callouts settings group. Used to reset only those
+ *  fields back to DEFAULT_SETTINGS without touching other settings. */
+export const CALLOUT_COLOR_KEYS = [
+  "calloutNoteColor", "calloutInfoColor", "calloutTipColor", "calloutAbstractColor",
+  "calloutSuccessColor", "calloutQuestionColor", "calloutWarningColor",
+  "calloutDangerColor", "calloutBugColor", "calloutExampleColor", "calloutQuoteColor",
+] as const satisfies readonly (keyof PDFExportSettings)[];
 
 /** Extracts only the DocStyle fields from the broader settings object.
  *  Used to snapshot the current look before switching presets, so each
