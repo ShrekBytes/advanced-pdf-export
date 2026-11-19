@@ -210,6 +210,15 @@ export class PDFExportSettingTab extends PluginSettingTab {
           "0.8": "Small (0.8×)", "0.88": "0.88×", "0.9": "Compact (0.9×)", "0.95": "0.95×",
           "1.0": "Normal (1.0×)", "1.05": "1.05×", "1.1": "Large (1.1×)", "1.2": "XLarge (1.2×)",
         }, { desc: "Multiplier applied to all heading sizes." }),
+        dropdown("Text alignment", "textAlign", {
+          auto: "Auto",
+          left: "Left",
+          center: "Center",
+          right: "Right",
+          justify: "Justify",
+        }, {
+          desc: "Default alignment for body paragraphs and list items. Auto follows natural reading order; override individual blocks with %% align: justify %%.",
+        }),
       ]),
 
       group("Background", [

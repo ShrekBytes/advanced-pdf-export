@@ -9,7 +9,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { App, TFile, requestUrl } from "obsidian";
-import { PAGE_SIZES, PDFExportSettings } from "./settings";
+import { PAGE_SIZES, PDFExportSettings, TextAlign } from "./settings";
 
 // ─── Small utilities ──────────────────────────────────────────────────────────
 
@@ -239,6 +239,8 @@ function buildCodeBlockCSS(s: PDFExportSettings): string {
     padding: 10px 12px;
     margin: 0 0 ${s.paragraphSpacing}em;
     overflow: hidden;
+    text-align: start;
+    hyphens: none;
   }
   .mpdf-doc pre code {
     font-family: ${codeFontFamily};
@@ -249,6 +251,8 @@ function buildCodeBlockCSS(s: PDFExportSettings): string {
     overflow-wrap: break-word;
     background: none;
     padding: 0;
+    text-align: start;
+    hyphens: none;
   }
   ${tokenRules}`;
 }
@@ -282,12 +286,21 @@ export function resolveCodeFont(s: PDFExportSettings): string {
     : s.codeFontFamily;
 }
 
+const GLOBAL_ALIGN_CSS: Record<TextAlign, string> = {
+  auto:    "",
+  left:    " text-align: left;",
+  center:  " text-align: center;",
+  right:   " text-align: right;",
+  justify: " text-align: justify; text-justify: inter-word; hyphens: auto; overflow-wrap: break-word;",
+};
+
 /** Builds the full `.mpdf-doc` stylesheet (typography, tables, callouts,
  *  mermaid, code blocks) shared verbatim by the preview shadow DOM and the
  *  export print HTML. */
 export function buildDocCSS(s: PDFExportSettings, isRTL = false): string {
   const hs = s.headingScale;
   const fontFamily = resolveFont(s);
+  const alignCSS = GLOBAL_ALIGN_CSS[s.textAlign] ?? "";
   const tableHeaderTextColor =
     hexLuminance(s.tableHeaderBg) < 0.35 ? "#fff" : s.headingColor;
 
@@ -337,9 +350,9 @@ export function buildDocCSS(s: PDFExportSettings, isRTL = false): string {
   .mpdf-doc h4 { font-size: ${Math.round(13 * hs)}px; font-weight: 700; color: ${s.headingColor}; margin: 12px 0 6px; letter-spacing: 0.04em; }
   .mpdf-doc h5 { font-size: ${Math.round(12 * hs)}px; font-weight: 600; color: ${s.headingColor}; margin: 10px 0 4px; font-style: italic; }
   .mpdf-doc h6 { font-size: ${Math.round(11 * hs)}px; font-weight: 600; color: ${s.bodyColor}; margin: 8px 0 4px; font-style: italic; opacity: 0.75; }
-  .mpdf-doc p { margin: 0 0 ${s.paragraphSpacing}em; }
+  .mpdf-doc p { margin: 0 0 ${s.paragraphSpacing}em;${alignCSS} }
   .mpdf-doc ul, .mpdf-doc ol { padding-inline-start: 1.4em; margin: 0 0 ${s.paragraphSpacing}em; }
-  .mpdf-doc li { margin-bottom: 0.2em; line-height: ${s.lineHeight}; }
+  .mpdf-doc li { margin-bottom: 0.2em; line-height: ${s.lineHeight};${alignCSS} }
   .mpdf-doc li:has(input[type="checkbox"]) { list-style: none; }
   .mpdf-doc input[type="checkbox"] {
     appearance: none;
@@ -379,11 +392,12 @@ export function buildDocCSS(s: PDFExportSettings, isRTL = false): string {
     border-inline-start: 3px solid ${s.blockquoteBorderColor};
     background: ${s.blockquoteBg};
     padding-block: 4px;
-    padding-inline: 1em 0;
+    padding-inline: 1em;
     margin: ${s.paragraphSpacing}em 0;
     font-style: italic;
     color: ${s.bodyColor}cc;
   }
+  .mpdf-doc blockquote > p:last-child { margin-bottom: 0; }
   .mpdf-doc code {
     font-family: ${resolveCodeFont(s)};
     font-variant-ligatures: ${s.codeFontLigatures ? "normal" : "none"};
@@ -392,6 +406,8 @@ export function buildDocCSS(s: PDFExportSettings, isRTL = false): string {
     padding: 1px 4px;
     border-radius: 3px;
     color: ${s.accentColor};
+    white-space: pre-wrap;
+    hyphens: none;
   }
   ${buildCodeBlockCSS(s)}
   .mpdf-doc hr {
