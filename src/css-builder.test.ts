@@ -113,6 +113,76 @@ describe("withAlpha", () => {
   });
 });
 
+describe("buildDocCSS text alignment", () => {
+  const ruleFor = (css: string, selector: string) =>
+    css.match(new RegExp(`${selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} \\{[^}]*\\}`))?.[0] ?? "";
+
+  it("defaults to auto and leaves p and li without text-align", () => {
+    expect(DEFAULT_SETTINGS.textAlign).toBe("auto");
+    const css = buildDocCSS({ ...DEFAULT_SETTINGS });
+    expect(textAlignFor(css, ".mpdf-doc p")).toBeUndefined();
+    expect(textAlignFor(css, ".mpdf-doc li")).toBeUndefined();
+  });
+
+  it.each(["left", "center", "right"] as const)("applies %s alignment to p and li", (align) => {
+    const css = buildDocCSS({ ...DEFAULT_SETTINGS, textAlign: align });
+    expect(textAlignFor(css, ".mpdf-doc p")).toBe(align);
+    expect(textAlignFor(css, ".mpdf-doc li")).toBe(align);
+    expect(ruleFor(css, ".mpdf-doc p")).not.toContain("hyphens: auto");
+  });
+
+  it("justifies p and li with hyphenation and word wrapping when textAlign is justify", () => {
+    const css = buildDocCSS({ ...DEFAULT_SETTINGS, textAlign: "justify" });
+    expect(textAlignFor(css, ".mpdf-doc p")).toBe("justify");
+    expect(textAlignFor(css, ".mpdf-doc li")).toBe("justify");
+    expect(ruleFor(css, ".mpdf-doc p")).toContain("hyphens: auto");
+    expect(ruleFor(css, ".mpdf-doc p")).toContain("overflow-wrap: break-word");
+    expect(ruleFor(css, ".mpdf-doc li")).toContain("hyphens: auto");
+    expect(ruleFor(css, ".mpdf-doc li")).toContain("overflow-wrap: break-word");
+  });
+
+  it("keeps natural direction in RTL mode when textAlign is auto, and justifies when justify", () => {
+    const rtlAuto = buildDocCSS({ ...DEFAULT_SETTINGS, textAlign: "auto" }, true);
+    expect(textAlignFor(rtlAuto, ".mpdf-doc p")).toBeUndefined();
+    expect(textAlignFor(rtlAuto, ".mpdf-doc li")).toBeUndefined();
+
+    const rtlJustify = buildDocCSS({ ...DEFAULT_SETTINGS, textAlign: "justify" }, true);
+    expect(textAlignFor(rtlJustify, ".mpdf-doc p")).toBe("justify");
+    expect(textAlignFor(rtlJustify, ".mpdf-doc li")).toBe("justify");
+  });
+
+  it("isolates code blocks from inherited alignment and hyphenation", () => {
+    const css = buildDocCSS({ ...DEFAULT_SETTINGS, textAlign: "justify" });
+    expect(textAlignFor(css, ".mpdf-doc pre")).toBe("start");
+    expect(textAlignFor(css, ".mpdf-doc pre code")).toBe("start");
+    expect(ruleFor(css, ".mpdf-doc pre")).toContain("hyphens: none");
+    expect(ruleFor(css, ".mpdf-doc pre code")).toContain("hyphens: none");
+  });
+
+  it("disables hyphenation and preserves wrapping on inline code", () => {
+    const css = buildDocCSS({ ...DEFAULT_SETTINGS, textAlign: "justify" });
+    expect(ruleFor(css, ".mpdf-doc code")).toContain("white-space: pre-wrap");
+    expect(ruleFor(css, ".mpdf-doc code")).toContain("hyphens: none");
+  });
+
+  it("applies symmetric inline padding and removes trailing paragraph margin in blockquotes", () => {
+    const css = buildDocCSS({ ...DEFAULT_SETTINGS, textAlign: "justify" });
+    expect(ruleFor(css, ".mpdf-doc blockquote")).toContain("padding-inline: 1em;");
+    expect(ruleFor(css, ".mpdf-doc blockquote > p:last-child")).toContain("margin-bottom: 0");
+  });
+
+  it("emits per-block alignment override rules and keeps pre blocks isolated inside aligned blocks", () => {
+    const css = buildDocCSS({ ...DEFAULT_SETTINGS, textAlign: "auto" });
+    for (const align of ["left", "center", "right"] as const) {
+      expect(css).toContain(`.mpdf-doc [data-mpdf-align="${align}"]`);
+      expect(css).toContain(`text-align: ${align}; hyphens: none;`);
+    }
+    expect(css).toContain('.mpdf-doc [data-mpdf-align="justify"]');
+    expect(css).toContain("text-align: justify; text-justify: inter-word; hyphens: auto; overflow-wrap: break-word;");
+    expect(css).toContain(".mpdf-doc [data-mpdf-align] pre");
+  });
+});
+
 describe("buildDocCSS callout colors", () => {
   function ruleBodyFor(css: string, selector: string): string | undefined {
     for (const [, selectors, body] of css.replace(/\/\*[\s\S]*?\*\//g, "").matchAll(/([^{}]+)\{([^{}]*)\}/g)) {

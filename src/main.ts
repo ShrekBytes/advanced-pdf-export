@@ -8,7 +8,8 @@
 
 import { Menu, Plugin, TFile } from "obsidian";
 import {
-  DocStyle, PDFExportSettings, PRESETS, DEFAULT_SETTINGS, extractDocStyle, PRESET_COLOR_KEYS, CALLOUT_COLOR_KEYS,
+  DocStyle, PDFExportSettings, PRESETS, DEFAULT_SETTINGS, extractDocStyle, PRESET_COLOR_KEYS,
+  CALLOUT_COLOR_KEYS, VALID_TEXT_ALIGNS,
 } from "./settings";
 import { PDFExportModal } from "./export-modal";
 import { PDFExportSettingTab } from "./settings-tab";
@@ -88,10 +89,16 @@ export default class MarkdownPDFPlugin extends Plugin {
 
   async loadSettings() {
     const data = (await this.loadData() ?? {}) as Partial<PDFExportSettings> & {
+      justifyText?: boolean;
       presetSnapshots?: Record<string, DocStyle>;
       lastSeenVersion?: string;
     };
     this.settings = Object.assign({}, DEFAULT_SETTINGS, data);
+
+    // Migration: early PR #66 builds persisted justifyText boolean instead of textAlign.
+    if (data.textAlign === undefined && data.justifyText === true) {
+      this.settings.textAlign = "justify";
+    }
 
     // Migration: codeTheme was added per-preset; absent value adopts the active preset's default.
     if (data.codeTheme === undefined) {
@@ -124,6 +131,11 @@ export default class MarkdownPDFPlugin extends Plugin {
     if (!(s.preset in PRESETS)) {
       console.warn(`[advanced-pdf-export] Unknown preset "${s.preset}", resetting to "default".`);
       s.preset = "default";
+    }
+
+    // Invalid textAlign value → fall back to default ("auto").
+    if (!VALID_TEXT_ALIGNS.includes(s.textAlign)) {
+      s.textAlign = DEFAULT_SETTINGS.textAlign;
     }
 
     // Font sizes must be positive to produce visible text.

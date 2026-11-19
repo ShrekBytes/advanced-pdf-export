@@ -10,6 +10,7 @@
 
 import { App, Component, MarkdownRenderer, finishRenderMath } from "obsidian";
 import { waitForMathJaxStylesheetStable } from "./css-builder";
+import type { TextAlign } from "./settings";
 
 // ─── Markdown text helpers ─────────────────────────────────────────────────────
 
@@ -119,24 +120,88 @@ export function splitMarkdownSections(
  * fences until the pair ends, and a line inside a fence is protected by the
  * flag set when the fence opened.)
  */
-export function stripCommentLines(md: string): string {
+/** Updates CommonMark fenced-code tracking for one line; returns true on a fence delimiter line. */
+function updateFenceState(line: string, state: { inFence: boolean; marker: string }): boolean {
+  // Obsidian's fence test: up to three leading spaces, 3+ backticks or tildes.
+  const fence = /^ {0,3}(`{3,}|~{3,})/.exec(line);
+  if (!fence) return false;
+  if (!state.inFence) {
+    state.inFence = true;
+    state.marker = fence[1];
+  } else if (fence[1][0] === state.marker[0] && fence[1].length >= state.marker.length) {
+    state.inFence = false; // CommonMark close: same char, at least as long.
+  }
+  return true;
+}
+
+type BlockAlign = Exclude<TextAlign, "auto">;
+type AlignDirective =
+  | { kind: "next"; align: BlockAlign }
+  | { kind: "start"; align: BlockAlign }
+  | { kind: "end" };
+
+const ALIGN_COMMENT_RE =
+  /^[ \t]*(?:%%[ \t]*(align(?:-start)?)[ \t]*:[ \t]*(left|center|right|justify)[ \t]*%%|<!--[ \t]*(align(?:-start)?)[ \t]*:[ \t]*(left|center|right|justify)[ \t]*-->)[ \t]*$/i;
+const ALIGN_END_RE =
+  /^[ \t]*(?:%%[ \t]*align-end[ \t]*%%|<!--[ \t]*align-end[ \t]*-->)[ \t]*$/i;
+
+function parseAlignmentDirective(line: string): AlignDirective | null {
+  if (ALIGN_END_RE.test(line)) return { kind: "end" };
+  const match = ALIGN_COMMENT_RE.exec(line);
+  if (!match) return null;
+  const keyword = (match[1] ?? match[3]).toLowerCase();
+  const align = (match[2] ?? match[4]).toLowerCase() as BlockAlign;
+  return keyword === "align-start" ? { kind: "start", align } : { kind: "next", align };
+}
+
+/**
+ * Converts alignment comment directives (`%% align: ... %%`, `<!-- align: ... -->`,
+ * `align-start`, `align-end`) outside fenced code blocks into isolated HTML marker
+ * spans so Obsidian's MarkdownRenderer preserves them for `applyAlignmentMarkers`.
+ */
+export function preprocessAlignmentDirectives(md: string): string {
   const out: string[] = [];
-  let inFence = false;
-  let fenceMarker = "";
-  for (const line of md.split("\n")) {
-    // Obsidian's fence test: up to three leading spaces, 3+ backticks or tildes.
-    const fence = /^ {0,3}(`{3,}|~{3,})/.exec(line);
-    if (fence) {
-      if (!inFence) {
-        inFence = true;
-        fenceMarker = fence[1];
-      } else if (fence[1][0] === fenceMarker[0] && fence[1].length >= fenceMarker.length) {
-        inFence = false; // CommonMark close: same char, at least as long.
-      }
+  const fenceState = { inFence: false, marker: "" };
+  let activeRange: BlockAlign | null = null;
+
+  for (const line of normalizeMarkdown(md).split("\n")) {
+    if (updateFenceState(line, fenceState) || fenceState.inFence) {
       out.push(line);
       continue;
     }
-    if (inFence) {
+
+    const directive = parseAlignmentDirective(line);
+    if (directive) {
+      let token: string;
+      if (directive.kind === "next") {
+        token = `mpdf-align-next-${directive.align}`;
+      } else if (directive.kind === "start") {
+        activeRange = directive.align;
+        token = `mpdf-align-start-${directive.align}`;
+      } else {
+        activeRange = null;
+        token = "mpdf-align-end";
+      }
+      // Blank lines around the marker isolate it in its own <p> without interfering
+      // with adjacent headings, lists, blockquotes, or callouts.
+      out.push("", `<span class="mpdf-align-marker ${token}"></span>`, "");
+      continue;
+    }
+
+    out.push(line);
+    if (activeRange && PAGE_BREAK_RE.test(line)) {
+      out.push("", `<span class="mpdf-align-marker mpdf-align-start-${activeRange}"></span>`, "");
+    }
+  }
+
+  return out.join("\n");
+}
+
+export function stripCommentLines(md: string): string {
+  const out: string[] = [];
+  const fenceState = { inFence: false, marker: "" };
+  for (const line of md.split("\n")) {
+    if (updateFenceState(line, fenceState) || fenceState.inFence) {
       out.push(line);
       continue;
     }
@@ -230,7 +295,50 @@ function postProcessRenderedHTML(root: HTMLElement): void {
     if (!el.closest("svg")) el.remove();
   });
 
+  applyAlignmentMarkers(root);
   removeEmptyBlocks(root);
+}
+
+/**
+ * Reads `.mpdf-align-marker` spans placed by `preprocessAlignmentDirectives`,
+ * removes the markers (and any empty host paragraphs), and stamps
+ * `data-mpdf-align` directly on target block elements so pagination splitting
+ * via `cloneNode(false)` preserves per-block alignment across page breaks.
+ */
+export function applyAlignmentMarkers(root: HTMLElement): void {
+  let nextAlign: BlockAlign | null = null;
+  let rangeAlign: BlockAlign | null = null;
+
+  for (const child of Array.from(root.children) as HTMLElement[]) {
+    const isSelfMarker = child.classList.contains("mpdf-align-marker");
+    const markers = isSelfMarker
+      ? [child]
+      : Array.from(child.querySelectorAll<HTMLElement>(".mpdf-align-marker"));
+
+    if (markers.length > 0) {
+      for (const marker of markers) {
+        for (const cls of Array.from(marker.classList)) {
+          const nextMatch = /^mpdf-align-next-(left|center|right|justify)$/.exec(cls);
+          if (nextMatch) { nextAlign = nextMatch[1] as BlockAlign; continue; }
+          const startMatch = /^mpdf-align-start-(left|center|right|justify)$/.exec(cls);
+          if (startMatch) { rangeAlign = startMatch[1] as BlockAlign; continue; }
+          if (cls === "mpdf-align-end") { rangeAlign = null; }
+        }
+        if (!isSelfMarker) marker.remove();
+      }
+
+      if (isSelfMarker || (!child.textContent?.trim() && child.querySelectorAll(":not(br)").length === 0)) {
+        child.remove();
+        continue;
+      }
+    }
+
+    const effective = nextAlign ?? rangeAlign;
+    if (effective && child.tagName !== "PRE") {
+      child.setAttribute("data-mpdf-align", effective);
+    }
+    nextAlign = null;
+  }
 }
 
 /**

@@ -20,8 +20,8 @@ import {
   getMathJaxCSSInlined, waitForMathJaxStylesheetStable,
 } from "./css-builder";
 import {
-  normalizeMarkdown, stripFrontmatter, frontmatterAsCodeBlock, stripCommentLines,
-  splitMarkdownSections, isRTLContent, renderMarkdownToEl,
+  normalizeMarkdown, stripFrontmatter, frontmatterAsCodeBlock, preprocessAlignmentDirectives,
+  stripCommentLines, splitMarkdownSections, isRTLContent, renderMarkdownToEl,
 } from "./markdown";
 import {
   paginateEl, buildPageLayouts, extractOutlineEntries, injectPDFOutline, PageGeometry, PageLayout,
@@ -271,6 +271,7 @@ export class PDFExportModal extends Modal {
       "Tip: open this panel from a note's right-click menu, command palette,\n" +
       "or keyboard shortcut to auto-load the active note.\n\n" +
       "Use /// on its own line for a manual page break (or /// landscape / /// portrait).\n" +
+      "Use %% align: left | center | right | justify %% above a block to align it (or align-start / align-end for ranges).\n" +
       "Use --- for a horizontal rule.\n\n" +
       "Mermaid diagrams are supported:\n```mermaid\nflowchart LR\n  A --> B --> C\n```\n\n" +
       "Markdown tables:\n| Col A | Col B |\n|-------|-------|\n| Cell  | Cell  |";
@@ -390,6 +391,26 @@ export class PDFExportModal extends Modal {
     breakBtn.title = "Insert page break (///)";
     breakBtn.addEventListener("click", () => this.insertAtCursor("\n///\n"));
 
+    const alignCtrl = left.createDiv({ cls: "mpdf-ctrl" });
+    const alignSel = alignCtrl.createEl("select", { cls: "mpdf-select" });
+    alignSel.title = "Insert block or range alignment directive";
+    alignSel.setAttr("aria-label", "Insert alignment directive");
+    for (const [val, label] of [
+      ["", "Align…"],
+      ["left", "Left"],
+      ["center", "Center"],
+      ["right", "Right"],
+      ["justify", "Justify"],
+    ]) {
+      alignSel.createEl("option", { value: val, text: label });
+    }
+    alignSel.addEventListener("change", () => {
+      const mode = alignSel.value as "left" | "center" | "right" | "justify" | "";
+      if (!mode) return;
+      alignSel.value = "";
+      this.insertAlignmentDirective(mode);
+    });
+
     this.noteTitleEl = left.createDiv({ cls: "mpdf-topbar-title", text: "—" });
 
     this.pageCountEl = right.createSpan({ cls: "mpdf-page-count", text: "— pages" });
@@ -432,6 +453,28 @@ export class PDFExportModal extends Modal {
     ta.value = ta.value.slice(0, start) + text + ta.value.slice(end);
     ta.selectionStart = ta.selectionEnd = start + text.length;
     ta.focus();
+  }
+
+  private insertAlignmentDirective(mode: "left" | "center" | "right" | "justify") {
+    const ta = this.editorEl;
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    const leading = start > 0 && ta.value[start - 1] !== "\n" ? "\n" : "";
+
+    if (start < end) {
+      const selected = ta.value.slice(start, end);
+      const trailing = end < ta.value.length && ta.value[end] !== "\n" ? "\n" : "";
+      const wrapped = `${leading}%% align-start: ${mode} %%\n${selected}\n%% align-end %%${trailing}`;
+      ta.value = ta.value.slice(0, start) + wrapped + ta.value.slice(end);
+      ta.selectionStart = ta.selectionEnd = start + wrapped.length;
+    } else {
+      const directive = `${leading}%% align: ${mode} %%\n`;
+      ta.value = ta.value.slice(0, start) + directive + ta.value.slice(end);
+      ta.selectionStart = ta.selectionEnd = start + directive.length;
+    }
+
+    ta.focus();
+    this.render();
   }
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -516,6 +559,9 @@ export class PDFExportModal extends Modal {
     } else {
       md = frontmatterAsCodeBlock(md);
     }
+
+    // Extract alignment directives before stripCommentLines drops `%% ... %%` comments.
+    md = preprocessAlignmentDirectives(md);
 
     // Drop comment-only lines before rendering: inside a paragraph Obsidian
     // leaves a <br> behind for each one, which removeEmptyBlocks cannot see.
