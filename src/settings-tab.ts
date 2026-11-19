@@ -26,11 +26,29 @@ const NUMERIC_DROPDOWN_KEYS = new Set([
   "backgroundImageOpacity",
 ]);
 
+const CALLOUT_COLOR_CONTROLS: ReadonlyArray<readonly [label: string, key: string]> = [
+  ["Note", "calloutNoteColor"],
+  ["Info / Todo", "calloutInfoColor"],
+  ["Tip / Hint / Important", "calloutTipColor"],
+  ["Abstract / Summary / TLDR", "calloutAbstractColor"],
+  ["Success / Check / Done", "calloutSuccessColor"],
+  ["Question / Help / FAQ", "calloutQuestionColor"],
+  ["Warning / Caution / Attention", "calloutWarningColor"],
+  ["Danger / Error / Failure", "calloutDangerColor"],
+  ["Bug", "calloutBugColor"],
+  ["Example", "calloutExampleColor"],
+  ["Quote / Cite", "calloutQuoteColor"],
+];
+
 export class PDFExportSettingTab extends PluginSettingTab {
   plugin: MarkdownPDFPlugin;
 
   /** True when any setting changed while this tab is open; triggers a single render on hide(). */
   private dirty = false;
+
+  /** True when the 11 callout color pickers inside Colors are expanded. */
+  private calloutColorsExpanded = false;
+  private calloutToggleBtn: ButtonComponent | null = null;
 
   constructor(app: App, plugin: MarkdownPDFPlugin) {
     super(app, plugin);
@@ -39,6 +57,8 @@ export class PDFExportSettingTab extends PluginSettingTab {
 
   /** Called by Obsidian when the user leaves this tab. Fires one render if settings changed. */
   hide(): void {
+    this.calloutColorsExpanded = false;
+    this.calloutToggleBtn = null;
     if (this.dirty) {
       this.dirty = false;
       this.plugin.activeModal?.render(true);
@@ -64,6 +84,10 @@ export class PDFExportSettingTab extends PluginSettingTab {
   setControlValue(key: string, value: unknown): void {
     const settings = this.plugin.settings as unknown as Record<string, unknown>;
     settings[key] = NUMERIC_DROPDOWN_KEYS.has(key) ? parseFloat(value as string) : value;
+    if (key === "useCalloutColors" && !value) {
+      this.calloutColorsExpanded = false;
+      this.calloutToggleBtn?.setButtonText("Show colors");
+    }
     void this.markDirty();
     // Cheap re-evaluation of every `visible`/`disabled` predicate below — covers
     // frameEnabled, backgroundImageEnabled, fontFamily, and pageSize all toggling
@@ -257,6 +281,41 @@ export class PDFExportSettingTab extends PluginSettingTab {
           dropdown("Code syntax theme", "codeTheme", codeThemeOptions, {
             desc: "Independent of your Obsidian theme. \"None\" uses the body text color and code background above with no highlighting.",
           }),
+          toggle(
+            "Custom callout colors",
+            "useCalloutColors",
+            "Use a dedicated color for each callout type instead of the accent color.",
+          ),
+          {
+            name: "Callout color palette",
+            desc: "Select Show colors to edit the 11 callout type colors.",
+            visible: () => s.useCalloutColors,
+            render: (setting) => {
+              setting
+                .addButton((b) => {
+                  this.calloutToggleBtn = b;
+                  b.setButtonText(this.calloutColorsExpanded ? "Hide colors" : "Show colors")
+                    .onClick(() => {
+                      this.calloutColorsExpanded = !this.calloutColorsExpanded;
+                      b.setButtonText(this.calloutColorsExpanded ? "Hide colors" : "Show colors");
+                      this.refreshDomState();
+                    });
+                })
+                .addButton((b) =>
+                  b
+                    .setButtonText("Reset")
+                    .setTooltip("Restore default callout colors")
+                    .onClick(() => {
+                      this.plugin.resetCalloutColors();
+                      void this.markDirty();
+                      this.update();
+                    }),
+                );
+            },
+          },
+          ...CALLOUT_COLOR_CONTROLS.map(([label, key]) =>
+            color(label, key, () => s.useCalloutColors && this.calloutColorsExpanded),
+          ),
         ]),
         extraButtons: [
           (extra) => {
@@ -268,39 +327,6 @@ export class PDFExportSettingTab extends PluginSettingTab {
               .setTooltip("Reset colors to this preset's defaults")
               .onClick(() => {
                 this.plugin.resetPresetColors();
-                void this.markDirty();
-                this.update();
-              });
-          },
-        ],
-      },
-
-      {
-        ...group("Callouts", [
-          toggle("Custom callout colors", "useCalloutColors",
-            "Use distinct, customizable colors for each callout type instead of the single accent color."),
-          color("Note", "calloutNoteColor", () => s.useCalloutColors),
-          color("Info / Todo", "calloutInfoColor", () => s.useCalloutColors),
-          color("Tip / Hint / Important", "calloutTipColor", () => s.useCalloutColors),
-          color("Abstract / Summary / TLDR", "calloutAbstractColor", () => s.useCalloutColors),
-          color("Success / Check / Done", "calloutSuccessColor", () => s.useCalloutColors),
-          color("Question / Help / FAQ", "calloutQuestionColor", () => s.useCalloutColors),
-          color("Warning / Caution / Attention", "calloutWarningColor", () => s.useCalloutColors),
-          color("Danger / Error / Failure", "calloutDangerColor", () => s.useCalloutColors),
-          color("Bug", "calloutBugColor", () => s.useCalloutColors),
-          color("Example", "calloutExampleColor", () => s.useCalloutColors),
-          color("Quote / Cite", "calloutQuoteColor", () => s.useCalloutColors),
-        ]),
-        extraButtons: [
-          (extra) => {
-            const host = extra.extraSettingsEl.parentElement;
-            extra.extraSettingsEl.detach();
-            if (!host) return;
-            new ButtonComponent(host)
-              .setButtonText("Reset")
-              .setTooltip("Reset callout colors to defaults")
-              .onClick(() => {
-                this.plugin.resetCalloutColors();
                 void this.markDirty();
                 this.update();
               });
