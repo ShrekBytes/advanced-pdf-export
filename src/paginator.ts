@@ -20,6 +20,14 @@ export interface OutlineEntry {
   page:  number; // 1-indexed page number in the exported PDF
 }
 
+export interface PageGeometry {
+  orientation: "portrait" | "landscape";
+  pw: number;
+  ph: number;
+  contentW: number;
+  contentH: number;
+}
+
 export interface PageLayout {
   pageNodes: HTMLElement[];
   pageNum: number;
@@ -34,6 +42,11 @@ export interface PageLayout {
   footerLeft: string;
   footerRight: string;
   footerCenter: string;
+  orientation?: "portrait" | "landscape";
+  pw?: number;
+  ph?: number;
+  contentW?: number;
+  contentH?: number;
 }
 
 // ─── Shared measurement helpers ─────────────────────────────────────────────────
@@ -863,7 +876,12 @@ function resolvePageNumberFormat(format: string, current: number, total: number,
 /** Converts paginated page-node arrays into fully-resolved PageLayout objects,
  *  computing header/footer text and page number strings for each page.
  *  noteTitle backs the {{title}} placeholder in pageNumberFormat. */
-export function buildPageLayouts(allPages: HTMLElement[][], s: PDFExportSettings, noteTitle: string): PageLayout[] {
+export function buildPageLayouts(
+  allPages: HTMLElement[][],
+  s: PDFExportSettings,
+  noteTitle: string,
+  pageGeometries?: PageGeometry[],
+): PageLayout[] {
   const totalPages = allPages.length;
   return allPages.map((pageNodes, i) => {
     const pageNum = i + 1;
@@ -910,7 +928,17 @@ export function buildPageLayouts(allPages: HTMLElement[][], s: PDFExportSettings
     const hasHeader = s.showHeader && pageShowsHeader && !!(headerLeft || headerCenter || headerRight || s.showHeaderBorder);
     const hasFooter = s.showFooter && pageShowsFooter && !!(footerLeft || footerRight || footerCenter || s.showFooterBorder);
 
-    return { pageNodes, pageNum, totalPages, pageShowsHeader, pageShowsFooter, hasHeader, hasFooter, headerLeft, headerCenter, headerRight, footerLeft, footerRight, footerCenter };
+    const geom = pageGeometries?.[i];
+    return {
+      pageNodes, pageNum, totalPages, pageShowsHeader, pageShowsFooter,
+      hasHeader, hasFooter, headerLeft, headerCenter, headerRight,
+      footerLeft, footerRight, footerCenter,
+      orientation: geom?.orientation,
+      pw: geom?.pw,
+      ph: geom?.ph,
+      contentW: geom?.contentW,
+      contentH: geom?.contentH,
+    };
   });
 }
 

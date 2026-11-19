@@ -2,7 +2,7 @@
 
 import { describe, it, expect } from "vitest";
 import {
-  frontmatterAsCodeBlock, removeEmptyBlocks, stripCommentLines, stripFrontmatter,
+  frontmatterAsCodeBlock, removeEmptyBlocks, splitMarkdownSections, stripCommentLines, stripFrontmatter,
 } from "./markdown";
 
 // These fixtures are hand-written from Obsidian's reported output shape, not
@@ -193,5 +193,119 @@ describe("frontmatterAsCodeBlock", () => {
   it("uses a fence longer than any backtick run in the YAML", () => {
     expect(frontmatterAsCodeBlock("---\nkey: |\n  ```\n---\nbody"))
       .toBe("````yaml\nkey: |\n  ```\n````\nbody");
+  });
+});
+
+describe("splitMarkdownSections", () => {
+  it("maintains default portrait orientation on simple cuts", () => {
+    const md = "Section 1\n///\nSection 2\n///\nSection 3";
+    expect(splitMarkdownSections(md)).toEqual([
+      { content: "Section 1", orientation: "portrait" },
+      { content: "Section 2", orientation: "portrait" },
+      { content: "Section 3", orientation: "portrait" },
+    ]);
+  });
+
+  it("respects defaultOrientation when specified", () => {
+    const md = "Section 1\n///\nSection 2";
+    expect(splitMarkdownSections(md, "landscape")).toEqual([
+      { content: "Section 1", orientation: "landscape" },
+      { content: "Section 2", orientation: "landscape" },
+    ]);
+  });
+
+  it("handles /// landscape and /// portrait directives case-insensitively", () => {
+    const md = [
+      "Intro",
+      "/// landscape",
+      "Landscape page",
+      "/// portrait",
+      "Portrait page",
+      "/// LANDSCAPE",
+      "Uppercase landscape",
+      "/// Portrait",
+      "Mixed-case portrait",
+    ].join("\n");
+
+    expect(splitMarkdownSections(md)).toEqual([
+      { content: "Intro", orientation: "portrait" },
+      { content: "Landscape page", orientation: "landscape" },
+      { content: "Portrait page", orientation: "portrait" },
+      { content: "Uppercase landscape", orientation: "landscape" },
+      { content: "Mixed-case portrait", orientation: "portrait" },
+    ]);
+  });
+
+  it("ignores non-standard keywords and extra words after ///", () => {
+    const md = [
+      "Start",
+      "/// horizontal",
+      "Still same page",
+      "/// apaisado",
+      "/// vertical",
+      "/// custom",
+      "/// landscape extra",
+      "End",
+    ].join("\n");
+
+    expect(splitMarkdownSections(md)).toEqual([
+      { content: md, orientation: "portrait" },
+    ]);
+  });
+
+  it("applies the continuity rule across simple cuts", () => {
+    const md = [
+      "Section 1 (portrait default)",
+      "/// landscape",
+      "Section 2 (landscape)",
+      "///",
+      "Section 3 (remains landscape)",
+      "///",
+      "Section 4 (remains landscape)",
+      "/// portrait",
+      "Section 5 (portrait)",
+      "///",
+      "Section 6 (remains portrait)",
+    ].join("\n");
+
+    expect(splitMarkdownSections(md)).toEqual([
+      { content: "Section 1 (portrait default)", orientation: "portrait" },
+      { content: "Section 2 (landscape)", orientation: "landscape" },
+      { content: "Section 3 (remains landscape)", orientation: "landscape" },
+      { content: "Section 4 (remains landscape)", orientation: "landscape" },
+      { content: "Section 5 (portrait)", orientation: "portrait" },
+      { content: "Section 6 (remains portrait)", orientation: "portrait" },
+    ]);
+  });
+
+  it("discards empty sections and trims whitespace", () => {
+    const md = [
+      "/// landscape",
+      "",
+      "///",
+      "",
+      "   ",
+      "# Trimmed heading",
+      "",
+      "Content with\nmultiple lines",
+      "",
+      "   ",
+      "/// portrait",
+      "///",
+      "",
+    ].join("\n");
+
+    expect(splitMarkdownSections(md)).toEqual([
+      {
+        content: "# Trimmed heading\n\nContent with\nmultiple lines",
+        orientation: "landscape",
+      },
+    ]);
+  });
+
+  it("returns an empty array when markdown has no visible content", () => {
+    expect(splitMarkdownSections("")).toEqual([]);
+    expect(splitMarkdownSections("   \n\n\t  ")).toEqual([]);
+    expect(splitMarkdownSections("///\n/// landscape\n///\n   ")).toEqual([]);
   });
 });

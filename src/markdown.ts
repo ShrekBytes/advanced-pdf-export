@@ -54,12 +54,47 @@ export function frontmatterAsCodeBlock(md: string): string {
   return `${fence}yaml\n${match[1]}\n${fence}\n${md.slice(match[0].length)}`;
 }
 
+export interface MarkdownSection {
+  content: string;
+  orientation: "portrait" | "landscape";
+}
+
+const PAGE_BREAK_RE = /^[ \t]*\/{3}(?:[ \t]+(landscape|portrait))?[ \t]*$/i;
+
 /** Splits on `///` manual page-break markers, trimming and dropping empty sections. */
-export function splitMarkdownSections(md: string): string[] {
-  return md
-    .split(/^\/\/\/\s*$/m)
-    .map((s) => s.trim())
-    .filter(Boolean);
+export function splitMarkdownSections(
+  md: string,
+  defaultOrientation: "portrait" | "landscape" = "portrait",
+): MarkdownSection[] {
+  const lines = md.replace(/\r\n|\r/g, "\n").split("\n");
+  const sections: MarkdownSection[] = [];
+  let currentLines: string[] = [];
+  let activeOrientation: "portrait" | "landscape" = defaultOrientation;
+
+  for (const line of lines) {
+    const match = line.match(PAGE_BREAK_RE);
+    if (match) {
+      const content = currentLines.join("\n").trim();
+      if (content) {
+        sections.push({ content, orientation: activeOrientation });
+      }
+      currentLines = [];
+
+      const keyword = match[1]?.toLowerCase();
+      if (keyword === "landscape" || keyword === "portrait") {
+        activeOrientation = keyword;
+      }
+    } else {
+      currentLines.push(line);
+    }
+  }
+
+  const content = currentLines.join("\n").trim();
+  if (content) {
+    sections.push({ content, orientation: activeOrientation });
+  }
+
+  return sections;
 }
 
 /**
