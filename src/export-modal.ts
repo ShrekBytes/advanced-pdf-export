@@ -20,8 +20,8 @@ import {
   getMathJaxCSSInlined, waitForMathJaxStylesheetStable,
 } from "./css-builder";
 import {
-  normalizeMarkdown, stripFrontmatter, frontmatterAsCodeBlock, stripCommentLines,
-  splitMarkdownSections, isRTLContent, renderMarkdownToEl,
+  normalizeMarkdown, stripFrontmatter, frontmatterAsCodeBlock, preprocessAlignmentDirectives,
+  stripCommentLines, splitMarkdownSections, isRTLContent, renderMarkdownToEl,
 } from "./markdown";
 import {
   paginateEl, buildPageLayouts, extractOutlineEntries, injectPDFOutline, PageGeometry, PageLayout,
@@ -516,6 +516,9 @@ export class PDFExportModal extends Modal {
     } else {
       md = frontmatterAsCodeBlock(md);
     }
+
+    // Extract alignment directives before stripCommentLines drops `%% ... %%` comments.
+    md = preprocessAlignmentDirectives(md);
 
     // Drop comment-only lines before rendering: inside a paragraph Obsidian
     // leaves a <br> behind for each one, which removeEmptyBlocks cannot see.

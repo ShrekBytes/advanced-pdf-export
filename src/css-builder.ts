@@ -294,6 +294,24 @@ const GLOBAL_ALIGN_CSS: Record<TextAlign, string> = {
   justify: " text-align: justify; text-justify: inter-word; hyphens: auto; overflow-wrap: break-word;",
 };
 
+const BLOCK_ALIGN_PROPS: Record<Exclude<TextAlign, "auto">, string> = {
+  left:    "text-align: left; hyphens: none;",
+  center:  "text-align: center; hyphens: none;",
+  right:   "text-align: right; hyphens: none;",
+  justify: "text-align: justify; text-justify: inter-word; hyphens: auto; overflow-wrap: break-word;",
+};
+
+function buildBlockAlignOverrideCSS(): string {
+  return (Object.entries(BLOCK_ALIGN_PROPS) as [Exclude<TextAlign, "auto">, string][])
+    .map(
+      ([align, props]) =>
+        `  .mpdf-doc [data-mpdf-align="${align}"],\n` +
+        `  .mpdf-doc [data-mpdf-align="${align}"] p,\n` +
+        `  .mpdf-doc [data-mpdf-align="${align}"] li { ${props} }`,
+    )
+    .join("\n");
+}
+
 /** Builds the full `.mpdf-doc` stylesheet (typography, tables, callouts,
  *  mermaid, code blocks) shared verbatim by the preview shadow DOM and the
  *  export print HTML. */
@@ -521,6 +539,12 @@ export function buildDocCSS(s: PDFExportSettings, isRTL = false): string {
     height: auto;
     display: block;
   }
+
+  /* Per-block alignment overrides stamped by applyAlignmentMarkers().
+   * Code blocks stay isolated at the start edge even inside aligned containers. */
+${buildBlockAlignOverrideCSS()}
+  .mpdf-doc [data-mpdf-align] pre,
+  .mpdf-doc [data-mpdf-align] pre code { text-align: start; hyphens: none; }
   `.trim();
 }
 

@@ -170,4 +170,15 @@ describe("buildDocCSS text alignment", () => {
     expect(ruleFor(css, ".mpdf-doc blockquote")).toContain("padding-inline: 1em;");
     expect(ruleFor(css, ".mpdf-doc blockquote > p:last-child")).toContain("margin-bottom: 0");
   });
+
+  it("emits per-block alignment override rules and keeps pre blocks isolated inside aligned blocks", () => {
+    const css = buildDocCSS({ ...DEFAULT_SETTINGS, textAlign: "auto" });
+    for (const align of ["left", "center", "right"] as const) {
+      expect(css).toContain(`.mpdf-doc [data-mpdf-align="${align}"]`);
+      expect(css).toContain(`text-align: ${align}; hyphens: none;`);
+    }
+    expect(css).toContain('.mpdf-doc [data-mpdf-align="justify"]');
+    expect(css).toContain("text-align: justify; text-justify: inter-word; hyphens: auto; overflow-wrap: break-word;");
+    expect(css).toContain(".mpdf-doc [data-mpdf-align] pre");
+  });
 });

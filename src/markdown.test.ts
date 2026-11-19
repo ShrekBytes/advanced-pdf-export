@@ -2,7 +2,8 @@
 
 import { describe, it, expect } from "vitest";
 import {
-  frontmatterAsCodeBlock, removeEmptyBlocks, splitMarkdownSections, stripCommentLines, stripFrontmatter,
+  applyAlignmentMarkers, frontmatterAsCodeBlock, preprocessAlignmentDirectives,
+  removeEmptyBlocks, splitMarkdownSections, stripCommentLines, stripFrontmatter,
 } from "./markdown";
 
 // These fixtures are hand-written from Obsidian's reported output shape, not
@@ -307,5 +308,122 @@ describe("splitMarkdownSections", () => {
     expect(splitMarkdownSections("")).toEqual([]);
     expect(splitMarkdownSections("   \n\n\t  ")).toEqual([]);
     expect(splitMarkdownSections("///\n/// landscape\n///\n   ")).toEqual([]);
+  });
+});
+
+describe("preprocessAlignmentDirectives", () => {
+  it("converts Obsidian and HTML single-block directives case-insensitively", () => {
+    const md = [
+      "%% align: justify %%",
+      "Paragraph 1",
+      "<!-- ALIGN: Center -->",
+      "# Heading",
+      "  %% align: RIGHT %%  ",
+      "Paragraph 2",
+      "<!-- align: left -->",
+      "Paragraph 3",
+    ].join("\n");
+
+    const out = preprocessAlignmentDirectives(md);
+    expect(out).toContain('<span class="mpdf-align-marker mpdf-align-next-justify"></span>');
+    expect(out).toContain('<span class="mpdf-align-marker mpdf-align-next-center"></span>');
+    expect(out).toContain('<span class="mpdf-align-marker mpdf-align-next-right"></span>');
+    expect(out).toContain('<span class="mpdf-align-marker mpdf-align-next-left"></span>');
+  });
+
+  it("converts align-start and align-end directives and carries ranges across /// breaks", () => {
+    const md = [
+      "%% align-start: justify %%",
+      "Page 1 text",
+      "/// landscape",
+      "Page 2 text",
+      "%% align-end %%",
+      "After range",
+    ].join("\n");
+
+    const out = preprocessAlignmentDirectives(md);
+    const matches = out.match(/mpdf-align-start-justify/g) ?? [];
+    expect(matches).toHaveLength(2);
+    expect(out).toContain('<span class="mpdf-align-marker mpdf-align-end"></span>');
+  });
+
+  it("ignores alignment directives inside backtick and tilde fenced code blocks", () => {
+    const md = [
+      "```markdown",
+      "%% align: justify %%",
+      "<!-- align: center -->",
+      "```",
+      "~~~",
+      "%% align-start: right %%",
+      "%% align-end %%",
+      "~~~",
+      "%% align: center %%",
+      "Outside fence",
+    ].join("\n");
+
+    const out = preprocessAlignmentDirectives(md);
+    expect(out).toContain("```markdown\n%% align: justify %%\n<!-- align: center -->\n```");
+    expect(out).toContain("~~~\n%% align-start: right %%\n%% align-end %%\n~~~");
+    expect(out).toContain('<span class="mpdf-align-marker mpdf-align-next-center"></span>');
+  });
+});
+
+describe("applyAlignmentMarkers", () => {
+  it("stamps data-mpdf-align only on the target block for single-block directives", () => {
+    const root = document.createElement("div");
+    root.innerHTML = [
+      "<p>First</p>",
+      '<p><span class="mpdf-align-marker mpdf-align-next-justify"></span></p>',
+      "<p>Justified</p>",
+      "<p>Third</p>",
+    ].join("");
+
+    applyAlignmentMarkers(root);
+
+    const paragraphs = Array.from(root.querySelectorAll("p"));
+    expect(paragraphs).toHaveLength(3);
+    expect(paragraphs[0].hasAttribute("data-mpdf-align")).toBe(false);
+    expect(paragraphs[1].getAttribute("data-mpdf-align")).toBe("justify");
+    expect(paragraphs[2].hasAttribute("data-mpdf-align")).toBe(false);
+    expect(root.querySelector(".mpdf-align-marker")).toBeNull();
+  });
+
+  it("handles ranges, nested single-block overrides, and skips pre blocks", () => {
+    const root = document.createElement("div");
+    root.innerHTML = [
+      '<p><span class="mpdf-align-marker mpdf-align-start-justify"></span></p>',
+      "<p>Range 1</p>",
+      '<p><span class="mpdf-align-marker mpdf-align-next-center"></span></p>',
+      "<h2>Centered heading</h2>",
+      "<pre><code>code</code></pre>",
+      "<ul><li>Item</li></ul>",
+      '<p><span class="mpdf-align-marker mpdf-align-end"></span></p>',
+      "<p>After range</p>",
+    ].join("");
+
+    applyAlignmentMarkers(root);
+
+    expect(root.querySelectorAll(".mpdf-align-marker")).toHaveLength(0);
+    expect(root.children[0].getAttribute("data-mpdf-align")).toBe("justify");
+    expect(root.children[1].getAttribute("data-mpdf-align")).toBe("center");
+    expect(root.children[2].tagName).toBe("PRE");
+    expect(root.children[2].hasAttribute("data-mpdf-align")).toBe(false);
+    expect(root.children[3].getAttribute("data-mpdf-align")).toBe("justify");
+    expect(root.children[4].hasAttribute("data-mpdf-align")).toBe(false);
+  });
+
+  it("lets the last consecutive single-block directive win and removes br-only marker hosts", () => {
+    const root = document.createElement("div");
+    root.innerHTML = [
+      '<p><span class="mpdf-align-marker mpdf-align-next-left"></span><br></p>',
+      '<span class="mpdf-align-marker mpdf-align-next-right"></span>',
+      "<blockquote><p>Quoted</p></blockquote>",
+    ].join("");
+
+    applyAlignmentMarkers(root);
+
+    expect(root.children).toHaveLength(1);
+    expect(root.children[0].tagName).toBe("BLOCKQUOTE");
+    expect(root.children[0].getAttribute("data-mpdf-align")).toBe("right");
   });
 });
