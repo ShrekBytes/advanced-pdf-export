@@ -10,6 +10,27 @@ export class App {}
 
 export class TFile {}
 
+export class PluginSettingTab {
+  app: App;
+  constructor(app: App, _plugin: unknown) {
+    this.app = app;
+  }
+  refreshDomState(): void {}
+  update(): void {}
+}
+
+export class ButtonComponent {
+  setButtonText(_text: string): this {
+    return this;
+  }
+  setTooltip(_tooltip: string): this {
+    return this;
+  }
+  onClick(_cb: () => void): this {
+    return this;
+  }
+}
+
 /** Base class for Obsidian's unloadable components. Only ever subclassed, never
  *  instantiated, by the modules under test. */
 export class Component {

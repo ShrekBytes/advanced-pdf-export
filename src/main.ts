@@ -9,7 +9,7 @@
 import { Menu, Plugin, TFile } from "obsidian";
 import {
   DocStyle, PDFExportSettings, PRESETS, DEFAULT_SETTINGS, extractDocStyle, PRESET_COLOR_KEYS,
-  VALID_TEXT_ALIGNS,
+  CALLOUT_COLOR_KEYS, VALID_TEXT_ALIGNS,
 } from "./settings";
 import { PDFExportModal } from "./export-modal";
 import { PDFExportSettingTab } from "./settings-tab";
@@ -204,6 +204,13 @@ export default class MarkdownPDFPlugin extends Plugin {
       for (const k of PRESET_COLOR_KEYS) {
         snap[k] = p[k];
       }
+    }
+  }
+
+  /** Restores all per-type callout color pickers to their DEFAULT_SETTINGS values. */
+  resetCalloutColors(): void {
+    for (const k of CALLOUT_COLOR_KEYS) {
+      this.settings[k] = DEFAULT_SETTINGS[k];
     }
   }
 }

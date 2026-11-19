@@ -30,8 +30,8 @@ If this plugin saves you time, consider **[supporting the project](https://shrek
 - **Code syntax themes** — 10+ themes (GitHub Light/Dark, Dracula, Tokyo Night, Monokai, Catppuccin, and more) applied independently of your Obsidian theme
 - **Dedicated code font** — set a font family for `code`/```` ``` ```` blocks separately from the body font, with a ligatures on/off toggle for fonts like Fira Code or JetBrains Mono
 - **Mermaid diagrams** — renders flowcharts, sequence diagrams, and all other Mermaid diagram types
-- **Page breaks** — `///` on its own line for a manual break; optionally auto-insert before every H1 or H2
-- **Page size & orientation** — A4, A3, A5, Letter, Legal, or a fully custom size (mm) × Portrait / Landscape
+- **Page breaks** — `///` on its own line for a manual break (`/// landscape` or `/// portrait` to switch page orientation), plus optional auto-breaks before every H1 or H2
+- **Page size & orientation** — A4, A3, A5, Letter, Legal, or a custom size (mm) in Portrait or Landscape, with per-page orientation overrides using `/// landscape` and `/// portrait`
 - **Full layout control** — margins, font family/size/line height, paragraph spacing, heading scale, text alignment, colors
 - **Page frame** — optional border drawn around the outer edge of every page (solid, dashed, dotted, double, groove, or ridge)
 - **Background** — solid color or a background image with fit, scope (full page or content area only), and opacity controls
@@ -47,7 +47,7 @@ If this plugin saves you time, consider **[supporting the project](https://shrek
 
 ### Page Breaks
 
-Type `///` on its own line, or click **Insert Page Break** in the toolbar.
+Type `///` on its own line, or click **Insert Page Break** in the toolbar. To switch page orientation mid-document, put `/// landscape` or `/// portrait` on its own line.
 
 ![Page break syntax](screenshots/usage.png)
 
@@ -85,6 +85,8 @@ Search for **Advanced PDF Export** in **Settings → Community Plugins → Brows
 
 **Insert a page break** — type `///` on its own line, or click **Insert Page Break** in the topbar. Use `---` for a horizontal rule.
 
+**Mix portrait and landscape pages** — type `/// landscape` or `/// portrait` on its own line to start a new page in that orientation. That directive overrides the topbar **Orient** setting for the new section. Plain `///` breaks and auto page breaks before H1 or H2 keep the active orientation until another `/// landscape` or `/// portrait` line changes it. Directives are case-insensitive, and any line with extra words after `///` (such as `/// landscape notes`) stays as regular text.
+
 **Render the preview** — click **⟳ Render PDF** or press `Ctrl+Enter` / `Cmd+Enter`.
 
 **Change style or page settings** — use the **Style**, **Size**, and **Orient** dropdowns in the topbar. Changes re-render automatically.
@@ -112,7 +114,7 @@ All settings take effect after closing the settings panel.
 |---|---|
 | Page size | A4, A3, A5, Letter, Legal, or Custom |
 | Custom width / Custom height | Width and height in mm, each its own field (visible only when Custom is selected) |
-| Orientation | Portrait or Landscape |
+| Orientation | Portrait or Landscape. Sets the starting orientation for the document (`/// landscape` and `/// portrait` override it per section) |
 
 ### Margin & Frame
 
